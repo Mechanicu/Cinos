@@ -1,0 +1,74 @@
+header size:512
+bufcount:15 15 0
+idx:0	next:1
+idx:1	next:2
+idx:2	next:3
+idx:3	next:4
+idx:4	next:5
+idx:5	next:6
+idx:6	next:7
+idx:7	next:8
+idx:8	next:9
+idx:9	next:10
+idx:10	next:11
+idx:11	next:12
+idx:12	next:13
+idx:13	next:14
+idx:14	next:255
+
+start:0	end:2
+buf:0x7ffc2284ab10 | size:1536 | start:0
+buf:0x7ffc2284ad10 | size:1024 | start:1
+buf:0x7ffc2284af10 | size:512 | start:2
+sendtag:c00000
+count:3 | freeidx:3 | fullidx:255
+recvidx:0
+recvsize:1536
+buf:0x7ffc2284b110 | size:1536 | start:0
+buf:0x7ffc2284b310 | size:1536 | start:1
+buf:0x7ffc2284b510 | size:1536 | start:2
+start:0	end:2
+count:1536 | freeidx:3 | fullidx:255
+idx:0	next:1
+idx:1	next:2
+idx:2	next:4
+idx:3	next:0
+idx:4	next:5
+idx:5	next:6
+idx:6	next:7
+idx:7	next:8
+idx:8	next:9
+idx:9	next:10
+idx:10	next:11
+idx:11	next:12
+idx:12	next:13
+idx:13	next:14
+idx:14	next:255
+start:3	end:1
+buf:0x7ffc2284ab10 | size:1536 | start:3
+buf:0x7ffc2284ad10 | size:1024 | start:0
+buf:0x7ffc2284af10 | size:512 | start:1
+sendtag:3c00000
+count:3 | freeidx:2 | fullidx:255
+recvidx:3
+recvsize:1536
+buf:0x7ffc2284b110 | size:1536 | start:3
+buf:0x7ffc2284b310 | size:1536 | start:0
+buf:0x7ffc2284b510 | size:1536 | start:1
+start:3	end:1
+count:1536 | freeidx:2 | fullidx:255
+idx:0	next:1
+idx:1	next:4
+idx:2	next:3
+idx:3	next:0
+idx:4	next:5
+idx:5	next:6
+idx:6	next:7
+idx:7	next:8
+idx:8	next:9
+idx:9	next:10
+idx:10	next:11
+idx:11	next:12
+idx:12	next:13
+idx:13	next:14
+idx:14	next:255
