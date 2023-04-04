@@ -1,0 +1,12 @@
+1.to use vdso_start/end, the extern type must be char[], otherwise the value of 
+vdso addr won't work as expected
+
+2.both linux and liteos use DT_HASH/.hash(section) to search symbol, but usually
+gcc generate ELF with DT_GNU_HASH/.gun_hash. They have different section names 
+and different structure. It's controled by LD_FLAG:--hash-style, to define which
+hash style we want to use, for example:
+(-Wl:this params means params directly after it will transfer to LD, which means
+it must appear before every params about LD)
+gcc -Wl,--hash-styel=both/gnu/sysv
+
+3.
