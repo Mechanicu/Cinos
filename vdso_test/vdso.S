@@ -1,9 +1,8 @@
-    #include "vdso.h"
     .globl vdso_start
     .globl vdso_end
     .section .rodata
-    .balign PAGE_SIZE
+    .balign 4096
 vdso_start:
     .incbin "./vdso.so"
-    .balign PAGE_SIZE
+    .balign 4096
 vdso_end:

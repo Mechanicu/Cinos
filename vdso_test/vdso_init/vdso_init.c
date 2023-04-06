@@ -151,11 +151,10 @@ void vdso_init_from_sysinfo_ehdr(unsigned long base)
 
 void *vdso_sym(const char *version, const char *name)
 {
-    unsigned long ver_hash;
     if (!vdso_info.valid) {
         return 0;
     }
-
+    // unsigned long ver_hash;
     // ver_hash = elf_hash(version);
     LOG_DEBUG("VDSO sym_name:%s, sym_version:%s\n", name, version);
     ELF(Word)

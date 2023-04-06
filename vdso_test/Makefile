@@ -2,15 +2,28 @@ PREFIX :=
 CC := $(PREFIX)gcc
 MAIN_IN := *.c *.S *.o
 MAIN_OUT := vdso_test_main
-SUB_DIR1 := ./vdso_user
-SUB_DIR2 := ./vdso_init
+MAIN_LDFLAGS := -lpthread
 
-all:
-	make -C $(SUB_DIR1) all
-	make -C $(SUB_DIR2) all
-	$(CC) -Wall -Wextra -Wno-unused-parameter $(MAIN_IN) -o $(MAIN_OUT)
+SUB_DIR = vdso_user vdso_init vdso_update
+SUB_DIR_CLEAN = $(SUB_DIR:%=%_clean)
 
-clean:
-	make -C $(SUB_DIR1) clean
-	make -C $(SUB_DIR2) clean
-	rm -f *.o *.so $(MAIN_OUT)
+.PHONY: all subdirs test
+all: subdirs test
+
+test:
+	$(CC) -Wall -Wextra -Wno-unused-parameter $(MAIN_IN) $(MAIN_LDFLAGS) -o $(MAIN_OUT)
+
+.PHONY: subdirs $(SUB_DIR)
+
+subdirs: $(SUB_DIR)
+
+$(SUB_DIR):
+	make -C $@ all
+
+
+.PHONY: clean $(SUB_DIR_CLEAN)
+clean:$(SUB_DIR_CLEAN)
+	rm -rf $(MAIN_OUT) ./*.o ./*.so
+
+$(SUB_DIR_CLEAN):
+	make  -C $(@:%_clean=%) clean
