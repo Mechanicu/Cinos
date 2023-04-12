@@ -19,7 +19,17 @@ static inline void atomic_set(atomic_t *var, int val)
     } while (!__sync_bool_compare_and_swap(&(var->value), old, val));
 }
 
+static inline void atomic_store(atomic_t* var, int val)
+{
+    atomic_set(var, val);
+}
+
 static inline int atomic_get(atomic_t *var)
+{
+    return var->value;
+}
+
+static inline int atomic_load(atomic_t* var)
 {
     return var->value;
 }

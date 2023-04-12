@@ -16,11 +16,14 @@ int main(int argc, char *argv[])
     //     LOG_DEBUG("list[%d]:%llu\n", i, list[i]);
     // }
     linkhash_t *hashtable = linkhash_create(MAX_HASH_TABLE_COUNT);
-    LOG_DEBUG("hashtable:%p, bucket_start:%p, bucket_count:%lu, obj_count:%lu\n",
-              (void *)hashtable,
+    LOG_DEBUG("hashtable:%p, bucket_start:%p, bucket_count:%lu, obj_count:%d\n",
+              hashtable,
               hashtable->bucket,
               hashtable->bucket_count,
-              hashtable->obj_count);
-    
+              atomic_load(&(hashtable->obj_count)));
+    for (int i = 0; i < MAX_HASH_TABLE_COUNT; i++) {
+        linkhash_add(i, ULONG_MAX - i, hashtable);
+    }
+    linkhash_destroy(hashtable);
     return 0;
 }

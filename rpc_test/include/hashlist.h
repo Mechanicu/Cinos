@@ -6,13 +6,20 @@
 #include <pthread.h>
 
 #define LINKHASH_MAX_BUCKET_COUNT   128
+#define ENABLE_LINKHASH_BUCKET_LOCK 0
 
+#if ENABLE_LINKHASH_BUCKET_LOCK == 1
 #define HASH_BUCKET_LOCK_INIT(lock) atomic_set(lock, 0)
 #define HASH_BUCKET_LOCK(lock) \
     do {                       \
         atomic_set(lock, 0);   \
     } while (!atomic_get(lock))
 #define HASH_BUCKET_UNLOCK(lock) atomic_set(lock, 1)
+#else
+#define HASH_BUCKET_LOCK_INIT(lock)
+#define HASH_BUCKET_LOCK(lock)
+#define HASH_BUCKET_UNLOCK(lock)
+#endif
 
 typedef atomic_t hlist_bucket_lock_t;
 
@@ -28,9 +35,11 @@ typedef struct hashlist_object {
 } hlist_t;
 
 typedef struct hashlist_bucket {
-    atomic_t            refcount;
-    list_t              buckte_start;
+    atomic_t refcount;
+    list_t   buckte_start;
+#if ENABLE_LINKHASH_BUCKET_LOCK == 1
     hlist_bucket_lock_t bucket_lock;
+#endif
 } hlist_bucket_t;
 
 typedef struct linkhash {
@@ -56,7 +65,7 @@ static inline unsigned int hash_32bkey(const unsigned int key)
 linkhash_t *linkhash_create(const unsigned long bucket_count);
 void        linkhash_destroy(linkhash_t *hashtable);
 int         linkhash_add(unsigned long key, void *val, linkhash_t *table);
-int         hash_get(unsigned long long key);
-void        hash_remove(unsigned long long key);
+hlist_t    *linkhash_get(unsigned long key, linkhash_t *hashtable);
+hlist_t    *linkhash_remove(unsigned long key, linkhash_t *hashtable);
 
 #endif
