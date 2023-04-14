@@ -13,6 +13,9 @@ static inline void linkhash_init(const unsigned long bucket_count, linkhash_t *h
     INIT_LIST_HEAD(&(hashtable->hlist_head));
     // don't init bucket head when create linkhash, init it when using
     memset(hashtable->bucket, 0, bucket_count * sizeof(hlist_bucket_t));
+    for (int i = 0; i < bucket_count; i++) {
+        INIT_LIST_HEAD(&(hashtable->bucket[i].bucket_start));
+    }
 }
 
 static inline void linkhash_bucket_init(hlist_bucket_t *bucket)
@@ -56,9 +59,6 @@ int linkhash_add(unsigned long key, void *val, linkhash_t *table)
     }
     new->obj.val = val;
     new->obj.key = key;
-    if (bucket->bucket_start.next == NULL) {
-        INIT_LIST_HEAD(&(bucket->bucket_start));
-    }
     atomic_add(&(bucket->refcount), 1);
     // insert in conflict solved chain
     list_add(&(new->obj.chain), &(bucket->bucket_start));
@@ -91,7 +91,7 @@ long linkhash_get(unsigned long key, linkhash_t *hashtable)
     unsigned int    hash      = hash_32bkey((unsigned int)key);
     unsigned int    bucket_id = hash & (hashtable->bucket_count - 1);
     hlist_bucket_t *bucket    = &(hashtable->bucket[bucket_id]);
-    hash_obj_t     *chain     = NULL;
+    hash_obj_t *chain = NULL;
     list_for_each_entry(chain, &(bucket->bucket_start), hash_obj_t, chain)
     {
         LOG_DEBUG("HASHLIST GET, bucket:%d, obj:%p, key:%lx, val:%p\n", bucket_id, chain, chain->key, chain->val);

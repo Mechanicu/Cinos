@@ -33,7 +33,7 @@ rpc_client_t *rpc_client_get_service(const unsigned long service_id)
     if (!(rpc_client = rpc_client_init(service_cap))) {
         LOG_ERROR("Client init rpc client failed\n");
     }
-    LOG_DEBUG("Client get cap of rpc, service_id:%lu, service_cap:%lu, client:%p\n", service_id, service_cap, rpc_client);
+    LOG_DEBUG("Client get cap of rpc, service_id:%lu, service_cap:%lx, client:%p\n", service_id, service_cap, rpc_client);
     return rpc_client;
 }
 
@@ -76,7 +76,7 @@ void *rpc_client_request_service(rpc_client_t *rpc_client, const int service_typ
         case CLIENT_REQ_MEM_FROM_SERVER:
             rpc_client_package_params(rpc_client, service_type);
             rpc_client_send_request(service, rpc_client);
-            return (unsigned long)(rpc_client->params[0]);
+            return (void *)(rpc_client->params[0]);
         case CLIENT_REQ_DATA_TRANSFER_TO_SERVER:
             break;
         default:
