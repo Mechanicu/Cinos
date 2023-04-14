@@ -2,7 +2,7 @@
 #define _HASHLIST_H_
 
 #include "atomic.h"
-#include "kernel_list.h"
+#include "list.h"
 #include <pthread.h>
 
 #define LINKHASH_MAX_BUCKET_COUNT   128
@@ -36,7 +36,7 @@ typedef struct hashlist_object {
 
 typedef struct hashlist_bucket {
     atomic_t refcount;
-    list_t   buckte_start;
+    list_t   bucket_start;
 #if ENABLE_LINKHASH_BUCKET_LOCK == 1
     hlist_bucket_lock_t bucket_lock;
 #endif
@@ -65,7 +65,7 @@ static inline unsigned int hash_32bkey(const unsigned int key)
 linkhash_t *linkhash_create(const unsigned long bucket_count);
 void        linkhash_destroy(linkhash_t *hashtable);
 int         linkhash_add(unsigned long key, void *val, linkhash_t *table);
-hlist_t    *linkhash_get(unsigned long key, linkhash_t *hashtable);
-hlist_t    *linkhash_remove(unsigned long key, linkhash_t *hashtable);
+long        linkhash_get(unsigned long key, linkhash_t *hashtable);
+long        linkhash_remove(unsigned long key, linkhash_t *hashtable);
 
 #endif

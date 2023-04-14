@@ -1,5 +1,5 @@
 #include "include/hashlist.h"
-#include "include/kernel_list.h"
+#include "include/list.h"
 #include "include/log.h"
 #include <limits.h>
 
@@ -24,6 +24,9 @@ int main(int argc, char *argv[])
     for (int i = 0; i < MAX_HASH_TABLE_COUNT; i++) {
         linkhash_add(i, ULONG_MAX - i, hashtable);
     }
+    // hash_obj_t *hlist_obj = linkhash_get(MAX_HASH_TABLE_COUNT >> 2, hashtable);
+    // unsigned long val = linkhash_remove(MAX_HASH_TABLE_COUNT >> 2, hashtable);
+    // LOG_DEBUG("hashtable remove, val:%lx\n", val);
     linkhash_destroy(hashtable);
     return 0;
 }

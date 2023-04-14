@@ -18,7 +18,7 @@ static inline void linkhash_init(const unsigned long bucket_count, linkhash_t *h
 static inline void linkhash_bucket_init(hlist_bucket_t *bucket)
 {
     HASH_BUCKET_LOCK_INIT(&(bucket->bucket_lock));
-    INIT_LIST_HEAD(&(bucket->buckte_start));
+    INIT_LIST_HEAD(&(bucket->bucket_start));
     atomic_set(&(bucket->refcount), 0);
 }
 
@@ -45,7 +45,7 @@ int linkhash_add(unsigned long key, void *val, linkhash_t *table)
 
     unsigned int hash      = hash_32bkey((unsigned int)key);
     unsigned int bucket_id = hash & (table->bucket_count - 1);
-    LOG_DEBUG("HASHLIST add, key:%llu, val:%p, hash:%u, bucket:%u\n", key, val, hash, bucket_id);
+    LOG_DEBUG("HASHLIST add, key:%lu, val:%p, hash:%u, bucket:%u\n", key, val, hash, bucket_id);
     hlist_bucket_t *bucket = &(table->bucket[bucket_id]);
 
     // hash bucket itself doesn't store val, it only point to hash_obj list which stores val
@@ -56,12 +56,12 @@ int linkhash_add(unsigned long key, void *val, linkhash_t *table)
     }
     new->obj.val = val;
     new->obj.key = key;
-    if (bucket->buckte_start.next == NULL) {
-        INIT_LIST_HEAD(&(bucket->buckte_start));
+    if (bucket->bucket_start.next == NULL) {
+        INIT_LIST_HEAD(&(bucket->bucket_start));
     }
     atomic_add(&(bucket->refcount), 1);
     // insert in conflict solved chain
-    list_add(&(new->obj.chain), &(bucket->buckte_start));
+    list_add(&(new->obj.chain), &(bucket->bucket_start));
     // insert in table list
     list_add(&(new->hlist), &(table->hlist_head));
     atomic_add(&(table->obj_count), 1);
@@ -83,13 +83,47 @@ void linkhash_destroy(linkhash_t *hashtable)
     HASH_OBJ_FREE(hashtable);
 }
 
-hlist_t *linkhash_get(unsigned long key, linkhash_t *hashtable)
+long linkhash_get(unsigned long key, linkhash_t *hashtable)
 {
     if (!hashtable) {
-        return NULL;
+        return 0;
     }
+    unsigned int    hash      = hash_32bkey((unsigned int)key);
+    unsigned int    bucket_id = hash & (hashtable->bucket_count - 1);
+    hlist_bucket_t *bucket    = &(hashtable->bucket[bucket_id]);
+    hash_obj_t     *chain     = NULL;
+    list_for_each_entry(chain, &(bucket->bucket_start), hash_obj_t, chain)
+    {
+        LOG_DEBUG("HASHLIST GET, bucket:%d, obj:%p, key:%lx, val:%p\n", bucket_id, chain, chain->key, chain->val);
+        if (chain->key == key) {
+            return (unsigned long)(chain->val);
+        }
+    }
+    return 0;
 }
 
-hlist_t *linkhash_remove(unsigned long key, linkhash_t *hashtable)
+long linkhash_remove(unsigned long key, linkhash_t *hashtable)
 {
+    if (!hashtable) {
+        return -1;
+    }
+    unsigned int    hash      = hash_32bkey((unsigned int)key);
+    unsigned int    bucket_id = hash & (hashtable->bucket_count - 1);
+    hlist_bucket_t *bucket    = &(hashtable->bucket[bucket_id]);
+    hash_obj_t     *chain     = NULL;
+    list_for_each_entry(chain, &(bucket->bucket_start), hash_obj_t, chain)
+    {
+        if (chain->key == key) {
+            // remove from conflict solved chain
+            list_del_init(&(chain->chain));
+            hlist_t *hashlist = container_of(chain, hlist_t, obj);
+            // remove from hash list
+            list_del_init(&(hashlist->hlist));
+            LOG_DEBUG("HASHLIST REMOVE, bucket:%d, hlist:%p, obj:%p, key:%lx, val:%p\n", bucket_id, hashlist, chain, chain->key, chain->val);
+            unsigned long val = (unsigned long)(chain->val);
+            HASH_OBJ_FREE(hashlist);
+            return val;
+        }
+    }
+    return -1;
 }
