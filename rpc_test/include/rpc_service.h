@@ -28,11 +28,6 @@ enum rpc_client_ctrl {
     CLIENT_REQUEST_SERVICE,
 };
 
-enum rpc_service_type {
-    CLIENT_REQ_MEM_FROM_SERVER,
-    CLIENT_REQ_DATA_TRANSFER_TO_SERVER,
-};
-
 typedef struct rpc_service {
     cptr_t             server_id;
     sem_t              server_sem;

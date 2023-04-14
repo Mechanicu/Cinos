@@ -69,15 +69,18 @@ void *rpc_client_request_service(rpc_client_t *rpc_client, const int service_typ
         LOG_ERROR("Client can't get cap of rpc:%lx\n", rpc_client->service_cap);
         return NULL;
     }
+    
 
     // send request basic on request service type
     void *res = NULL;
     switch (service_type) {
-        case CLIENT_REQ_MEM_FROM_SERVER:
+        case CLIENT_GET_SERVICE:
             rpc_client_package_params(rpc_client, service_type);
             rpc_client_send_request(service, rpc_client);
             return (void *)(rpc_client->params[0]);
-        case CLIENT_REQ_DATA_TRANSFER_TO_SERVER:
+        case CLIENT_REQUEST_SERVICE:
+            break;
+        case CLIENT_STOP_SERVICE:
             break;
         default:
             LOG_DEBUG("Unknown request type:%d\n", service_type);

@@ -57,10 +57,6 @@ cptr_t rpc_service_register(const unsigned long service_id, const cptr_t server_
     return service_cap;
 }
 
-void rpc_service_start(const cptr_t service_cap, void *service_handler)
-{
-}
-
 void rpc_service_unregister(const unsigned long service_id)
 {
     if (!service_cap_hash) {
@@ -85,6 +81,6 @@ cptr_t rpc_client_security_check(const unsigned long service_id)
 void *rpc_get_capobj_bycptr(const cptr_t service_cap)
 {
     pthread_t cur_tid = pthread_self();
-    LOG_DEBUG("client request service, thread id:%lx, srv_cptr:%lx\n", cur_tid, service_cap);
+    LOG_DEBUG("RPC GET CAP_OBJ, thread id:%lx, srv_cptr:%lx, srv_cap_obj:%p\n", cur_tid, service_cap, (void *)service_cap);
     return ((void *)service_cap);
 }
