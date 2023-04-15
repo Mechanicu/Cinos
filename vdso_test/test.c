@@ -25,23 +25,23 @@ void *client_pthread(void *arg)
     vdso_info_t *info      = (vdso_info_t *)arg;
     void        *vdso_code = info->vdso_code_vaddr;
     void        *vdso_data = info->vdso_data_vaddr;
-    LOG_DEBUG("VDSO client vdso_code_vaddr:%p, vdso_data_vaddr:%p\n", vdso_code, vdso_data);
+    LOG_DEBUG("VDSO client vdso_code_vaddr:%p, vdso_data_vaddr:%p", vdso_code, vdso_data);
     vdso_init_from_sysinfo_ehdr((unsigned long)vdso_code);
     vdso_get_info_t   vgetinfo   = (vdso_get_info_t)vdso_sym("1.1", vdso_syms[0]);
     vdso_get_info_n_t vgetinfo_n = (vdso_get_info_n_t)vdso_sym("1.1", vdso_syms[1]);
-    LOG_DEBUG("VDSO client vgetinfo:%p, vgetinfo_n:%p\n", vgetinfo, vgetinfo_n);
+    LOG_DEBUG("VDSO client vgetinfo:%p, vgetinfo_n:%p", vgetinfo, vgetinfo_n);
     int data = 0;
     while (1) {
         vgetinfo(vdso_data, &data);
         sleep(1);
-        LOG_DEBUG("VDSO client read_data:%d\n", data);
+        LOG_DEBUG("VDSO client read_data:%d", data);
     }
     return NULL;
 }
 
 int main(int argc, char *argv[])
 {
-    LOG_DEBUG("vdso_start:%p, vdso_end:%p\n", vdso_start, vdso_end);
+    LOG_DEBUG("vdso_start:%p, vdso_end:%p", vdso_start, vdso_end);
     vdso_data_t vdso_data = {.val = 0};
     vdso_info_t vdso_info = {.vdso_code_vaddr = vdso_start,
                              .vdso_data_vaddr = &vdso_data};
@@ -55,6 +55,6 @@ int main(int argc, char *argv[])
     }
     // vgetinfo(&vdso_test_data, &data);
     // vgetinfo_n();
-    // LOG_DEBUG("vdso_data:%u, data:%u\n", vdso_test_data.val, data);
+    // LOG_DEBUG("vdso_data:%u, data:%u", vdso_test_data.val, data);
     return 0;
 }

@@ -74,7 +74,7 @@ void vdso_init_from_sysinfo_ehdr(unsigned long base)
 
     ELF(Phdr) *pt = (ELF(Phdr) *)(vdso_info.load_addr + hdr->e_phoff);
     ELF(Dyn) *dyn = 0;
-    LOG_DEBUG("VDSO start:0x%lx, ph_tab:0x%p\n", vdso_info.load_addr, pt);
+    LOG_DEBUG("VDSO start:0x%lx, ph_tab:0x%p", vdso_info.load_addr, pt);
     /*
      * We need two things from the segment table: the load offset
      * and the dynamic table.
@@ -87,7 +87,7 @@ void vdso_init_from_sysinfo_ehdr(unsigned long base)
             dyn = (ELF(Dyn) *)(base + pt[i].p_offset);
         }
     }
-    LOG_DEBUG("VDSO load_offset:0x%lx, dyn:0x%p\n", vdso_info.load_offset, dyn);
+    LOG_DEBUG("VDSO load_offset:0x%lx, dyn:0x%p", vdso_info.load_offset, dyn);
 
     if (!found_vaddr || !dyn) {
         return; /* Failed */
@@ -121,7 +121,7 @@ void vdso_init_from_sysinfo_ehdr(unsigned long base)
         }
     }
 
-    LOG_DEBUG("VDSO symstrings:0x%p, symtab:0x%p, versym:0x%p, sysv_hash:0x%p, verdef:0x%p\n",
+    LOG_DEBUG("VDSO symstrings:0x%p, symtab:0x%p, versym:0x%p, sysv_hash:0x%p, verdef:0x%p",
               vdso_info.symstrings,
               vdso_info.symtab,
               vdso_info.versym,
@@ -140,7 +140,7 @@ void vdso_init_from_sysinfo_ehdr(unsigned long base)
     vdso_info.bucket  = &sysv_hash[2];
     vdso_info.chain   = &sysv_hash[vdso_info.nbucket + 2];
 
-    LOG_DEBUG("VDSO sysv_hash: nbucket=%u, nchain=%u, bucket=0x%p, chain=0x%p\n",
+    LOG_DEBUG("VDSO sysv_hash: nbucket=%u, nchain=%u, bucket=0x%p, chain=0x%p",
               vdso_info.nbucket,
               vdso_info.nchain,
               vdso_info.bucket,
@@ -156,10 +156,10 @@ void *vdso_sym(const char *version, const char *name)
     }
     // unsigned long ver_hash;
     // ver_hash = elf_hash(version);
-    LOG_DEBUG("VDSO sym_name:%s, sym_version:%s\n", name, version);
+    LOG_DEBUG("VDSO sym_name:%s, sym_version:%s", name, version);
     ELF(Word)
     chain = vdso_info.bucket[elf_hash((const unsigned char *)name) % vdso_info.nbucket];
-    LOG_DEBUG("VDSO sym_bucket:%lu, sym_chain:%u\n", elf_hash((const unsigned char *)name) % vdso_info.nbucket, chain);
+    LOG_DEBUG("VDSO sym_bucket:%lu, sym_chain:%u", elf_hash((const unsigned char *)name) % vdso_info.nbucket, chain);
 
     for (; chain != STN_UNDEF; chain = vdso_info.chain[chain]) {
         ELF(Sym) *sym = &vdso_info.symtab[chain];
@@ -184,7 +184,7 @@ void *vdso_sym(const char *version, const char *name)
         //                                             version, ver_hash)) {
         //     continue;
         // }
-        LOG_DEBUG("VDSO sym_name:%s, sym_addr:%p\n", name, (void *)(vdso_info.load_offset + sym->st_value));
+        LOG_DEBUG("VDSO sym_name:%s, sym_addr:%p", name, (void *)(vdso_info.load_offset + sym->st_value));
 
         return (void *)(vdso_info.load_offset + sym->st_value);
     }

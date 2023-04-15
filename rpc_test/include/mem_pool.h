@@ -17,7 +17,7 @@ enum {
     MEMBLOCK_LH_COUNT,
 };
 
-typedef struct mempool_block_s {
+typedef struct mempool_block {
     list_t        hook;
     unsigned long size;
     void         *block_start;

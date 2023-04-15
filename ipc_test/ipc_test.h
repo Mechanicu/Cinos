@@ -110,7 +110,7 @@ static inline int seq_out_static_list(struct _ep_ipc_header *header, int type, i
     header->slist_len[type] -= bufcount;
     header->slist[type] = first;
     header->ipcinfo[pre].next_buf_idx = -1;
-    printf("start:%d\tend:%d\n", next, pre);
+    printf("start:%d\tend:%d", next, pre);
     return next;
 }
 
@@ -202,7 +202,7 @@ unsigned long _ipc_send(struct ep_ipc_attr *attr, void *buf, unsigned long size)
     int end = start;
     for (int i = 0; i < bufcount; i++)
     {
-        printf("buf:%p | size:%lu | start:%d\n", buf, size, end);
+        printf("buf:%p | size:%lu | start:%d", buf, size, end);
         memcpy(&(que->que[end]), buf, size > IPC_MAX_MSGBYTES ? IPC_MAX_MSGBYTES : size);
         buf += IPC_MAX_MSGBYTES;
         size -= IPC_MAX_MSGBYTES;
@@ -217,7 +217,7 @@ unsigned long _ipc_send(struct ep_ipc_attr *attr, void *buf, unsigned long size)
 #endif
 
     // control flow
-    printf("sendtag:%x\n", tag);
+    printf("sendtag:%x", tag);
     SYSCALL_SEND(attr->ep, tag);
 
     return bufcount;
@@ -228,7 +228,7 @@ unsigned long _ipc_recv(struct ep_ipc_attr *attr, void *buf, unsigned long maxsi
     // get tag
     int tag = SYSCALL_RECV(attr->ep, tag);
     int start = msgtag_get_extra(tag);
-    printf("recvidx:%x\n", start);
+    printf("recvidx:%x", start);
 
     //
     struct _ep_ipc_header *header = (struct _ep_ipc_header *)(attr->shmaddr);
@@ -240,18 +240,18 @@ unsigned long _ipc_recv(struct ep_ipc_attr *attr, void *buf, unsigned long maxsi
     struct ep_ipc_que *que = (struct ep_ipc_que *)header;
     unsigned long size = msgtag_get_len(tag) * ARM_REG_SIZE;
     unsigned long tmpsize = size;
-    printf("recvsize:%lu\n", size);
+    printf("recvsize:%lu", size);
 
     for (int i = 0; i < bufcount; i++)
     {
-        printf("buf:%p | size:%lu | start:%d\n", buf, tmpsize, next);
+        printf("buf:%p | size:%lu | start:%d", buf, tmpsize, next);
         memcpy(buf, &(que->que[next]), tmpsize > IPC_MAX_MSGBYTES ? IPC_MAX_MSGBYTES : tmpsize);
         buf += IPC_MAX_MSGBYTES;
         tmpsize -= IPC_MAX_MSGBYTES;
         end = next;
         next = header->ipcinfo[next].next_buf_idx;
     }
-    printf("start:%d\tend:%d\n", start, end);
+    printf("start:%d\tend:%d", start, end);
     //
     EP_LOCK(&(header->rwlock));
     seq_in_static_list(header, start, end, FREE_IDX, bufcount);

@@ -26,7 +26,6 @@ static inline mempool_block_t *mempool_block_alloc(void *block_start, const unsi
 static inline mempool_block_t *mempool_block_insert_head(mempool_t *pool, mempool_block_t *block, const unsigned int type)
 {
     list_insert_after(&(pool->block_lh[type]), &(block->hook));
-    atomic_add(&(pool->list_len[type]), 1);
     return block;
 }
 
@@ -37,7 +36,6 @@ static inline mempool_block_t *mempool_block_remove_head(mempool_t *pool, const 
     mempool_block_t *block = (mempool_block_t *)(head->next);
     if ((void *)block != (void *)head) {
         list_remove(&(block->hook));
-        atomic_sub(&(pool->list_len[type]), 1);
         return block;
     }
     return NULL;
@@ -46,9 +44,9 @@ static inline mempool_block_t *mempool_block_remove_head(mempool_t *pool, const 
 static inline void mempool_init(mempool_t *pool, const unsigned long pool_size)
 {
     //
-    LOG_DEBUG("mempool_init\n");
+    LOG_DEBUG("mempool_init");
     for (int i = 0; i < MEMBLOCK_LH_COUNT; i++) {
-        LOG_DEBUG("init mempool:%d\n", i);
+        LOG_DEBUG("init mempool:%d", i);
         atomic_init(&(pool->list_len[i]));
         list_init(&(pool->block_lh[i]));
     }
@@ -66,16 +64,17 @@ mempool_t *mempool_create(const unsigned long block_size, unsigned long block_co
     unsigned long real_block_size = block_size;
     mempool_t    *pool            = (mempool_t *)MEMPOOL_ALLOC(sizeof(mempool_t));
     if (pool) {
-        LOG_DEBUG("create mempool, block_size: %lu, block_count: %lu\n", block_size, block_count);
+        LOG_DEBUG("create mempool, block_size: %lu, block_count: %lu", block_size, block_count);
         mempool_init(pool, block_count * block_size);
         for (int i = 0; i < block_count; i++) {
             void            *block_start = block_alloc(&real_block_size);
             mempool_block_t *block       = mempool_block_alloc(block_start, real_block_size);
             if (!mempool_block_insert_head(pool, block, FREE_MEMBLOCK_LH)) {
-                LOG_WARING("Alloc new memblock failed, cur block count:%d\n", atomic_get(&(pool->list_len[FREE_MEMBLOCK_LH])));
+                LOG_WARING("Alloc new memblock failed, cur block count:%d", atomic_get(&(pool->list_len[FREE_MEMBLOCK_LH])));
                 break;
             }
-            LOG_DEBUG("Alloc new memblock success, cur block count:%d\n", atomic_get(&(pool->list_len[FREE_MEMBLOCK_LH])));
+            atomic_add(&(pool->list_len[FREE_MEMBLOCK_LH]), 1);
+            LOG_DEBUG("Alloc new memblock success, cur block count:%d", atomic_get(&(pool->list_len[FREE_MEMBLOCK_LH])));
             pool->pool_free_size += real_block_size;
         }
         atomic_add(&(pool->list_len[USED_MEMBLOCK_LH]), 1);
@@ -94,7 +93,7 @@ int mempool_destroy(mempool_t *pool, void (*block_free)(void *block_start))
     //
     atomic_sub(&(pool->list_len[USED_MEMBLOCK_LH]), 1);
     if (!atomic_is_null(&(pool->list_len[USED_MEMBLOCK_LH]))) {
-        LOG_ERROR("Mempool_destroy failed, pool is using, cur used block count:%d\n", atomic_get(&(pool->list_len[USED_MEMBLOCK_LH])) - 1);
+        LOG_ERROR("Mempool_destroy failed, pool is using, cur used block count:%d", atomic_get(&(pool->list_len[USED_MEMBLOCK_LH])) - 1);
         atomic_add(&(pool->list_len[USED_MEMBLOCK_LH]), 1);
         return -EMEMPOOLUSING;
     }
@@ -102,7 +101,7 @@ int mempool_destroy(mempool_t *pool, void (*block_free)(void *block_start))
     while (!atomic_is_null(&(pool->list_len[FREE_MEMBLOCK_LH]))) {
         mempool_block_t *block = mempool_block_remove_head(pool, FREE_MEMBLOCK_LH);
         if (block != NULL) {
-            LOG_DEBUG("Mempool_destroy:block free, block size:%lu, block:%p, block_start:%p\n", block->size, block, block->block_start);
+            LOG_DEBUG("Mempool_destroy:block free, block size:%lu, block:%p, block_start:%p", block->size, block, block->block_start);
             block_free(block->block_start);
             MEMPOOL_FREE(block);
         }
@@ -114,7 +113,7 @@ int mempool_destroy(mempool_t *pool, void (*block_free)(void *block_start))
 mempool_block_t *mempool_alloc(mempool_t *pool)
 {
     if (!pool) {
-        LOG_ERROR("mempool_block_alloc failed, pool:%p\n", pool);
+        LOG_ERROR("mempool_block_alloc failed, pool:%p", pool);
         return NULL;
     }
     // remind others that someone using pool
@@ -122,13 +121,17 @@ mempool_block_t *mempool_alloc(mempool_t *pool)
 
     // requese free block
     atomic_sub(&(pool->list_len[FREE_MEMBLOCK_LH]), 1);
-    return mempool_block_remove_head(pool, FREE_MEMBLOCK_LH);
+    mempool_block_t *block = mempool_block_remove_head(pool, FREE_MEMBLOCK_LH);
+    if (block != NULL) {
+        mempool_block_insert_head(pool, block, USED_MEMBLOCK_LH);
+    }
+    return block;
 }
 
 void mempool_free(mempool_t *pool, mempool_block_t *block)
 {
     if (!pool || !block) {
-        LOG_ERROR("mempool_block_free failed, pool:%p, block:%p\n", pool, block);
+        LOG_ERROR("mempool_block_free failed, pool:%p, block:%p", pool, block);
         return;
     }
     //
@@ -136,5 +139,6 @@ void mempool_free(mempool_t *pool, mempool_block_t *block)
 
     // return free block
     atomic_sub(&(pool->list_len[USED_MEMBLOCK_LH]), 1);
+    list_del_init(&(block->hook));
     mempool_block_insert_head(pool, block, FREE_MEMBLOCK_LH);
 }

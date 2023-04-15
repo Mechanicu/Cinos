@@ -12,7 +12,7 @@ extern char vdso_end[];
 
 int main(int argc, char *argv[])
 {
-    LOG_DEBUG("vdso_start:%lx, vdso_end:%lx\n", vdso_start, vdso_end);
+    LOG_DEBUG("vdso_start:%lx, vdso_end:%lx", vdso_start, vdso_end);
     // __vdsosym(0, vdso_syms[1], vdso_start);
     return 0;
 }

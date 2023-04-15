@@ -42,11 +42,11 @@ static inline int bitmap_set_val(bitmap_t *bitmap, const unsigned int pos, const
         return -1;
     }
     if (pos > (bitmap->bytes << 3)) {
-        LOG_DEBUG("Bitmap position %u is out of range, max range:%u.\n", pos, bitmap->bytes << 3);
+        LOG_DEBUG("Bitmap position %u is out of range, max range:%u.", pos, bitmap->bytes << 3);
         return -1;
     }
     bitmap->bitmap[pos >> 3] |= (val << (pos & 7));
-    LOG_DEBUG("set_val: bitmap_t at:%u set to:%u, res:%hhx\n", pos, val, bitmap->bitmap[pos >> 3]);
+    LOG_DEBUG("set_val: bitmap_t at:%u set to:%u, res:%hhx", pos, val, bitmap->bitmap[pos >> 3]);
     return 0;
 }
 
@@ -82,7 +82,7 @@ int bitmap_get_first_free(bitmap_t *bitmap)
     bitmap_set(bitmap, first_pos);
     int pos = first_pos + 1;
     for (; pos < bitmap->bytes << 3, BITMAP_POS_ISNULL(bitmap->bitmap, pos); pos++);
-    LOG_DEBUG("bitmap_get_first_free:%d, current_first:%d\n", first_pos, pos);
+    LOG_DEBUG("bitmap_get_first_free:%d, current_first:%d", first_pos, pos);
     if (pos < bitmap->bytes << 3)
         atomic_set(&(bitmap->first_free_pos), pos);
     return first_pos;

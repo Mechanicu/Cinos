@@ -13,10 +13,10 @@ int main(int argc, char *argv[])
     //     list[hash_32bkey(i) % MAX_HASH_TABLE_COUNT] += 1;
     // }
     // for (int i = 0; i < MAX_HASH_TABLE_COUNT; i++){
-    //     LOG_DEBUG("list[%d]:%llu\n", i, list[i]);
+    //     LOG_DEBUG("list[%d]:%llu", i, list[i]);
     // }
     linkhash_t *hashtable = linkhash_create(MAX_HASH_TABLE_COUNT);
-    LOG_DEBUG("hashtable:%p, bucket_start:%p, bucket_count:%lu, obj_count:%d\n",
+    LOG_DEBUG("hashtable:%p, bucket_start:%p, bucket_count:%lu, obj_count:%d",
               hashtable,
               hashtable->bucket,
               hashtable->bucket_count,
@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
     }
     // hash_obj_t *hlist_obj = linkhash_get(MAX_HASH_TABLE_COUNT >> 2, hashtable);
     // unsigned long val = linkhash_remove(MAX_HASH_TABLE_COUNT >> 2, hashtable);
-    // LOG_DEBUG("hashtable remove, val:%lx\n", val);
+    // LOG_DEBUG("hashtable remove, val:%lx", val);
     linkhash_destroy(hashtable);
     return 0;
 }
