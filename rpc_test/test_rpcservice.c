@@ -1,6 +1,9 @@
 #include "include/rpc_service.h"
 #include <pthread.h>
 #include <unistd.h>
+#include <string.h>
+
+
 
 int main(int argc, char **argv)
 {
@@ -17,7 +20,8 @@ int main(int argc, char **argv)
     LOG_DEBUG("RPC client get rpc_shm:%p\n", shmaddr);
 
     // 
-    
+    memset(shmaddr, 'A', PAGE_SIZE);
+    rpc_client_request_service(rpc_client, CLIENT_REQ_SERVICE_WITHOUT_RSP);
     pthread_join(server_id, NULL);
     return 0;
 }

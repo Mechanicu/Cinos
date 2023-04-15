@@ -60,7 +60,7 @@ static inline void rpc_client_send_request(rpc_service_t *service, rpc_client_t 
     sem_wait(&(rpc_client->client_sem));
 }
 
-void *rpc_client_request_service(rpc_client_t *rpc_client, const int service_type)
+void *rpc_client_request_service(rpc_client_t *rpc_client, const unsigned int service_type)
 {
     if (!rpc_client) {
         return NULL;
@@ -73,20 +73,22 @@ void *rpc_client_request_service(rpc_client_t *rpc_client, const int service_typ
     }
     // send request basic on request service type
     void *res = NULL;
+    if (service_type > RPC_CLIENT_REQ_TOTAL_TYPE_COUNT) {
+        LOG_DEBUG("Unknown request type:%d", service_type);
+        return NULL;
+    }
+
+    // send rpc request
+    rpc_client_package_params(rpc_client, service_type);
+    rpc_client_send_request(service, rpc_client);
+    // proc response
     switch (service_type) {
         case CLIENT_GET_SERVICE:
-            rpc_client_package_params(rpc_client, service_type);
-            rpc_client_send_request(service, rpc_client);
-            LOG_DEBUG("RPC client receive response, shmaddr:%p, size:0x%lx", (void *)(rpc_client->rpc_params.rpc_shm_vaddr), rpc_client->rpc_params.param);
-            return (void *)(rpc_client->rpc_params.rpc_shm_vaddr);
-        case CLIENT_REQUEST_SERVICE:
-            // rpc_client_package_params
-            break;
+            LOG_DEBUG("RPC client get service, shmaddr:%p, size:0x%lx", (void *)(rpc_client->rpc_params.rpc_shm_vaddr), rpc_client->rpc_params.param);
+        case CLIENT_REQ_SERVICE_WITH_RSP:
+        case CLIENT_REQ_SERVICE_WITHOUT_RSP:
         case CLIENT_STOP_SERVICE:
-            break;
-        default:
-            LOG_DEBUG("Unknown request type:%d", service_type);
-            break;
+            return (void *)(rpc_client->rpc_params.rpc_shm_vaddr);
     }
     return NULL;
 }
