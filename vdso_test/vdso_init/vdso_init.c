@@ -74,7 +74,7 @@ void vdso_init_from_sysinfo_ehdr(unsigned long base)
 
     ELF(Phdr) *pt = (ELF(Phdr) *)(vdso_info.load_addr + hdr->e_phoff);
     ELF(Dyn) *dyn = 0;
-    LOG_DEBUG("VDSO start:0x%lx, ph_tab:0x%p", vdso_info.load_addr, pt);
+    LOG_DEBUG("VDSO start:0x0x%lx, ph_tab:0x%p", vdso_info.load_addr, pt);
     /*
      * We need two things from the segment table: the load offset
      * and the dynamic table.
@@ -87,7 +87,7 @@ void vdso_init_from_sysinfo_ehdr(unsigned long base)
             dyn = (ELF(Dyn) *)(base + pt[i].p_offset);
         }
     }
-    LOG_DEBUG("VDSO load_offset:0x%lx, dyn:0x%p", vdso_info.load_offset, dyn);
+    LOG_DEBUG("VDSO load_offset:0x0x%lx, dyn:0x%p", vdso_info.load_offset, dyn);
 
     if (!found_vaddr || !dyn) {
         return; /* Failed */

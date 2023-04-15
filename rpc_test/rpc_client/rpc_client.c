@@ -11,8 +11,8 @@ static inline void *rpc_client_init(const cptr_t service_cap)
     if (rpc_client) {
         INIT_LIST_HEAD(&(rpc_client->service_hook));
         sem_init(&(rpc_client->client_sem), 0, 0);
-        rpc_client->service_cap = service_cap;
-        rpc_client->client_id   = pthread_self();
+        rpc_client->service_cap          = service_cap;
+        rpc_client->rpc_params.client_id = pthread_self();
     }
     return rpc_client;
 }
@@ -34,7 +34,7 @@ rpc_client_t *rpc_client_get_service(const unsigned long service_id)
     if (!(rpc_client = rpc_client_init(service_cap))) {
         LOG_ERROR("Client init rpc client failed");
     }
-    LOG_DEBUG("Client get cap of rpc, service_id:%lu, service_cap:%lx, client:%p", service_id, service_cap, rpc_client);
+    LOG_DEBUG("Client get cap of rpc, service_id:%lu, service_cap:0x%lx, client:%p", service_id, service_cap, rpc_client);
     return rpc_client;
 }
 
@@ -48,7 +48,7 @@ static inline void rpc_client_package_params(rpc_client_t *rpc_client, const int
     rpc_client->rpc_params.req_type = service_type;
 }
 
-static inline int rpc_client_send_request(rpc_service_t *service, rpc_client_t *rpc_client)
+static inline void rpc_client_send_request(rpc_service_t *service, rpc_client_t *rpc_client)
 {
     pthread_spin_lock(&(service->lock));
     // insert current client in service client list
@@ -56,6 +56,7 @@ static inline int rpc_client_send_request(rpc_service_t *service, rpc_client_t *
     pthread_spin_unlock(&(service->lock));
     // change context from client to server
     sem_post(&(service->server_sem));
+    LOG_DEBUG("RPC CLIENT send request, server_id:0x%lx, client_id:0x%lx, service_type:%ld\n", service->server_id, rpc_client->rpc_params.client_id, rpc_client->rpc_params.req_type);
     sem_wait(&(rpc_client->client_sem));
 }
 
@@ -67,18 +68,19 @@ void *rpc_client_request_service(rpc_client_t *rpc_client, const int service_typ
     // get capability by cptr
     rpc_service_t *service = (rpc_service_t *)rpc_get_capobj_bycptr(rpc_client->service_cap);
     if (NULL == service) {
-        LOG_ERROR("Client can't get cap of rpc:%lx", rpc_client->service_cap);
+        LOG_ERROR("Client can't get cap of rpc:0x%lx", rpc_client->service_cap);
         return NULL;
     }
-    LOG_DEBUG("RPC CLIENT send request, server_id:%lx, client_id:%lx, service_type:%d\n", service->server_id, rpc_client->client_id, service_type);
     // send request basic on request service type
     void *res = NULL;
     switch (service_type) {
         case CLIENT_GET_SERVICE:
             rpc_client_package_params(rpc_client, service_type);
             rpc_client_send_request(service, rpc_client);
-            return (void *)(rpc_client->rpc_params.params[0]);
+            LOG_DEBUG("RPC client receive response, shmaddr:%p, size:0x%lx", (void *)(rpc_client->rpc_params.rpc_shm_vaddr), rpc_client->rpc_params.param);
+            return (void *)(rpc_client->rpc_params.rpc_shm_vaddr);
         case CLIENT_REQUEST_SERVICE:
+            // rpc_client_package_params
             break;
         case CLIENT_STOP_SERVICE:
             break;

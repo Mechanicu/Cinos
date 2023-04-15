@@ -48,9 +48,9 @@ static inline void mempool_init(mempool_t *pool, const unsigned long pool_size)
     for (int i = 0; i < MEMBLOCK_LH_COUNT; i++) {
         LOG_DEBUG("init mempool:%d", i);
         atomic_init(&(pool->list_len[i]));
-        list_init(&(pool->block_lh[i]));
+        INIT_LIST_HEAD(&(pool->block_lh[i]));
     }
-    list_init(&(pool->pool_hook));
+    INIT_LIST_HEAD(&(pool->pool_hook));
     pool->pool_free_size = 0;
     pool->pool_size      = pool_size;
     pool->pool_start     = 0;

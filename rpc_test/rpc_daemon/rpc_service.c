@@ -11,6 +11,7 @@ static inline cptr_t mk_rpc_service_cap(const unsigned long server_id)
     rpc_service_t *service_cap = RPC_SERVICE_MALLOC(sizeof(rpc_service_t));
     if (service_cap != NULL) {
         INIT_LIST_HEAD(&(service_cap->req_list));
+        INIT_LIST_HEAD(&(service_cap->rsp_list));
         service_cap->server_id = server_id;
         sem_init(&(service_cap->server_sem), 0, 0);
         pthread_spin_init(&(service_cap->lock), 0);
@@ -53,7 +54,7 @@ cptr_t rpc_service_register(const unsigned long service_id, const cptr_t server_
         del_rpc_service_cap(service_cap);
         return 0;
     }
-    LOG_DEBUG("Register new server id:%lu, cptr:%lx.", service_id, service_cap);
+    LOG_DEBUG("Register new server id:%lu, cptr:0x%lx.", service_id, service_cap);
     return service_cap;
 }
 
@@ -74,13 +75,13 @@ cptr_t rpc_client_security_check(const unsigned long service_id)
 {
     pthread_t cur_tid     = pthread_self();
     cptr_t    service_cap = linkhash_get(service_id, service_cap_hash);
-    LOG_DEBUG("client thread id:%lx, srv_cptr:%lx, srv_id:%lu", cur_tid, service_cap, service_id);
+    LOG_DEBUG("client thread id:0x%lx, srv_cptr:0x%lx, srv_id:%lu", cur_tid, service_cap, service_id);
     return service_cap;
 }
 
 void *rpc_get_capobj_bycptr(const cptr_t service_cap)
 {
     pthread_t cur_tid = pthread_self();
-    LOG_DEBUG("RPC GET CAP_OBJ, thread id:%lx, srv_cptr:%lx, srv_cap_obj:%p", cur_tid, service_cap, (void *)service_cap);
+    LOG_DEBUG("RPC GET CAP_OBJ, thread id:0x%lx, srv_cptr:0x%lx, srv_cap_obj:%p", cur_tid, service_cap, (void *)service_cap);
     return ((void *)service_cap);
 }

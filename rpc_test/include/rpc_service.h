@@ -12,7 +12,7 @@
 
 #define MAX_RPC_SERVICE_BUCKET_COUNT 128
 #define MAX_RPC_SHM_BLOCK_COUNT      256
-#define MAX_RPC_PARAMS_COUNT         4
+#define MAX_RPC_PARAMS_COUNT         2
 
 #define PAGE_SIZE                    4096
 
@@ -36,17 +36,18 @@ typedef struct rpc_service {
     cptr_t             server_id;
     sem_t              server_sem;
     list_t             req_list;
-    list_t             waiter_list;
+    list_t             rsp_list;
     pthread_spinlock_t lock;
 } rpc_service_t;
 
 typedef struct rpc_service_params {
+    cptr_t        client_id;
     unsigned long req_type;
-    unsigned long params[MAX_RPC_PARAMS_COUNT - 1];
+    void         *rpc_shm_vaddr;
+    unsigned long param;
 } rpc_srv_params_t;
 typedef struct rpc_client {
     list_t           service_hook;
-    cptr_t           client_id;
     cptr_t           service_cap;
     sem_t            client_sem;
     rpc_srv_params_t rpc_params;

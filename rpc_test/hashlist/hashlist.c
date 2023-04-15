@@ -48,7 +48,7 @@ int linkhash_add(unsigned long key, void *val, linkhash_t *table)
 
     unsigned int hash      = hash_32bkey((unsigned int)key);
     unsigned int bucket_id = hash & (table->bucket_count - 1);
-    LOG_DEBUG("HASHLIST add, key:%lu, val:%p, hash:%u, bucket:%u", key, val, hash, bucket_id);
+    LOG_DEBUG("HASHLIST add, key:0x%lx, val:%p, hash:%u, bucket:%u", key, val, hash, bucket_id);
     hlist_bucket_t *bucket = &(table->bucket[bucket_id]);
 
     // hash bucket itself doesn't store val, it only point to hash_obj list which stores val
@@ -76,7 +76,7 @@ void linkhash_destroy(linkhash_t *hashtable)
     list_t *hashlist = &(hashtable->hlist_head);
     while (hashlist->next != hashlist) {
         hlist_t *tmp = container_of(hashlist->next, hlist_t, hlist);
-        LOG_DEBUG("HASHLIST destroy, obj:%p, key:%lx, val:%p", tmp, tmp->obj.key, tmp->obj.val);
+        LOG_DEBUG("HASHLIST destroy, obj:%p, key:0x%lx, val:%p", tmp, tmp->obj.key, tmp->obj.val);
         list_del_init(&(tmp->hlist));
         HASH_OBJ_FREE(tmp);
     }
@@ -94,7 +94,7 @@ long linkhash_get(unsigned long key, linkhash_t *hashtable)
     hash_obj_t *chain = NULL;
     list_for_each_entry(chain, &(bucket->bucket_start), hash_obj_t, chain)
     {
-        LOG_DEBUG("HASHLIST GET, bucket:%d, obj:%p, key:%lx, val:%p", bucket_id, chain, chain->key, chain->val);
+        LOG_DEBUG("HASHLIST GET, bucket:%d, obj:%p, key:0x%lx, val:%p", bucket_id, chain, chain->key, chain->val);
         if (chain->key == key) {
             return (unsigned long)(chain->val);
         }
@@ -119,7 +119,7 @@ long linkhash_remove(unsigned long key, linkhash_t *hashtable)
             hlist_t *hashlist = container_of(chain, hlist_t, obj);
             // remove from hash list
             list_del_init(&(hashlist->hlist));
-            LOG_DEBUG("HASHLIST REMOVE, bucket:%d, hlist:%p, obj:%p, key:%lx, val:%p", bucket_id, hashlist, chain, chain->key, chain->val);
+            LOG_DEBUG("HASHLIST REMOVE, bucket:%d, hlist:%p, obj:%p, key:0x%lx, val:%p", bucket_id, hashlist, chain, chain->key, chain->val);
             unsigned long val = (unsigned long)(chain->val);
             HASH_OBJ_FREE(hashlist);
             return val;

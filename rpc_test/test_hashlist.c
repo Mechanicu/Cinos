@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
     }
     // hash_obj_t *hlist_obj = linkhash_get(MAX_HASH_TABLE_COUNT >> 2, hashtable);
     // unsigned long val = linkhash_remove(MAX_HASH_TABLE_COUNT >> 2, hashtable);
-    // LOG_DEBUG("hashtable remove, val:%lx", val);
+    // LOG_DEBUG("hashtable remove, val:0x%lx", val);
     linkhash_destroy(hashtable);
     return 0;
 }

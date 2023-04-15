@@ -217,7 +217,7 @@ unsigned long _ipc_send(struct ep_ipc_attr *attr, void *buf, unsigned long size)
 #endif
 
     // control flow
-    printf("sendtag:%x", tag);
+    printf("sendtag:0x%x", tag);
     SYSCALL_SEND(attr->ep, tag);
 
     return bufcount;
@@ -228,7 +228,7 @@ unsigned long _ipc_recv(struct ep_ipc_attr *attr, void *buf, unsigned long maxsi
     // get tag
     int tag = SYSCALL_RECV(attr->ep, tag);
     int start = msgtag_get_extra(tag);
-    printf("recvidx:%x", start);
+    printf("recvidx:0x%x", start);
 
     //
     struct _ep_ipc_header *header = (struct _ep_ipc_header *)(attr->shmaddr);
