@@ -82,6 +82,7 @@ void *rpc_client_request_service(rpc_client_t *rpc_client, const unsigned int se
     rpc_client_package_params(rpc_client, service_type);
     rpc_client_send_request(service, rpc_client);
     // proc response
+    LOG_DEBUG("Client request finished");
     switch (service_type) {
         case CLIENT_GET_SERVICE:
             LOG_DEBUG("RPC client get service, shmaddr:%p, size:0x%lx", (void *)(rpc_client->rpc_params.rpc_shm_vaddr), rpc_client->rpc_params.param);

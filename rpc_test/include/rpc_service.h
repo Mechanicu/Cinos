@@ -17,8 +17,8 @@
 #define PAGE_SIZE                    4096
 
 typedef pthread_t rpc_server_thread_t;
-
 typedef unsigned long cptr_t;
+typedef void* (*rpc_srv_handler_t)(const void* arg);
 
 // for service control
 enum rpc_service_ctrl_type {
@@ -41,7 +41,7 @@ enum rpc_client_req_type {
 };
 
 typedef struct rpc_service_handlers {
-    void *handlers[RPC_CLIENT_REQ_TYPE_COUNT];
+    rpc_srv_handler_t handlers[RPC_CLIENT_REQ_TYPE_COUNT];
 } rpc_service_handlers_t;
 
 typedef struct rpc_service {
