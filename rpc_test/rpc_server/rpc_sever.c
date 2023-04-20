@@ -21,7 +21,7 @@ rpc_service_handlers_t rpc_default_handlers = {
 };
 
 //
-static rpc_srv_params_t rpc_service_get_request(rpc_service_t *service)
+static inline rpc_srv_params_t rpc_service_get_request(rpc_service_t *service)
 {
     sem_wait(&(service->server_sem));
     pthread_spin_lock(&(service->lock));
@@ -42,7 +42,7 @@ static rpc_srv_params_t rpc_service_get_request(rpc_service_t *service)
     return (client->rpc_params);
 }
 
-static void rpc_service_awake_waiter(rpc_service_t *service)
+static inline void rpc_service_awake_waiter(rpc_service_t *service)
 {
     list_t *waiter = service->rsp_list.next;
     list_del_init(waiter);
@@ -53,7 +53,7 @@ static void rpc_service_awake_waiter(rpc_service_t *service)
 }
 
 // this total function is designed running in kernel
-static void rpc_service_send_response(rpc_service_t *service, rpc_srv_params_t *rsp_params)
+static inline void rpc_service_send_response(rpc_service_t *service, rpc_srv_params_t *rsp_params)
 {
     // store response params in clinet struct
     list_t       *waiter             = service->rsp_list.next;
@@ -63,7 +63,7 @@ static void rpc_service_send_response(rpc_service_t *service, rpc_srv_params_t *
     LOG_DEBUG("RPC SERVER send response, client_id:0x%lx, shmaddr:%p\n", client->rpc_params.client_id, client->rpc_params.rpc_shm_vaddr);
 }
 
-static void *rpc_shm_block_alloc(unsigned long *size)
+static inline void *rpc_shm_block_alloc(unsigned long *size)
 {
     if (*size > PAGE_SIZE) {
         return NULL;
@@ -77,7 +77,7 @@ static void *rpc_shm_block_alloc(unsigned long *size)
     return malloc(real_size);
 }
 
-static void rpc_shm_block_free(void *block_start)
+static inline void rpc_shm_block_free(void *block_start)
 {
     if (block_start) {
         free(block_start);
