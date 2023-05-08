@@ -83,11 +83,13 @@ void vdso_init_from_sysinfo_ehdr(unsigned long base)
         if (pt[i].p_type == PT_LOAD && !found_vaddr) {
             found_vaddr           = 1;
             vdso_info.load_offset = base + (unsigned long)pt[i].p_offset - (unsigned long)pt[i].p_vaddr;
+            LOG_DEBUG("VDSO load_offset:0x%lx, p_offset:0x%lx, p_vaddr:0x%lx", vdso_info.load_offset, (unsigned long)pt[i].p_offset, (unsigned long)pt[i].p_vaddr);
+
         } else if (pt[i].p_type == PT_DYNAMIC) {
             dyn = (ELF(Dyn) *)(base + pt[i].p_offset);
+            LOG_DEBUG("VDSO dyn:0x%p", dyn);
         }
     }
-    LOG_DEBUG("VDSO load_offset:0x0x%lx, dyn:0x%p", vdso_info.load_offset, dyn);
 
     if (!found_vaddr || !dyn) {
         return; /* Failed */
@@ -157,12 +159,12 @@ void *vdso_sym(const char *version, const char *name)
     // unsigned long ver_hash;
     // ver_hash = elf_hash(version);
     LOG_DEBUG("VDSO sym_name:%s, sym_version:%s", name, version);
-    ELF(Word)
-    chain = vdso_info.bucket[elf_hash((const unsigned char *)name) % vdso_info.nbucket];
-    LOG_DEBUG("VDSO sym_bucket:%lu, sym_chain:%u", elf_hash((const unsigned char *)name) % vdso_info.nbucket, chain);
+    ELF(Word) chain = vdso_info.bucket[elf_hash((const unsigned char *)name) % vdso_info.nbucket];
+    LOG_DEBUG("VDSO sym_bucket:%lu", elf_hash((const unsigned char *)name) % vdso_info.nbucket);
 
     for (; chain != STN_UNDEF; chain = vdso_info.chain[chain]) {
         ELF(Sym) *sym = &vdso_info.symtab[chain];
+        LOG_DEBUG("VDSO sym_chain:%u", chain);
 
         /* Check for a defined global or weak function w/ right name. */
         if (ELF64_ST_TYPE(sym->st_info) != STT_FUNC) {

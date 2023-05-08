@@ -1,261 +1,313 @@
+#ifndef _IPC_TEST_H_
+#define _IPC_TEST_H_
+#include "../log.h"
+#include "dep.h"
 #include <pthread.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include <string.h>
-#include "dep.h"
 
-#define EOUTIPCBUF 1
-
-#define PAGE_SIZE 4096
-#define PAGE_BITS 12
-#define IPC_MAX_MSGQUEPAGES 2
-#define IPC_MAX_MSGBYTES 512
-#define IPC_MAX_MSGBITS 9
-#define IPC_MAX_MSGCOUNT 64
-
-#define ULONG_MAX (0ul - 1)
-#if (ULONG_MAX == (0xffffffff))
-#define ARM_REG_SIZE 4
-#else
-#define ARM_REG_SIZE 8
+#define ENABLE_IPC_SHM 1
+#if ENABLE_IPC_SHM == 1
+#ifndef PAGE_SIZE_SHIFT
+#define PAGE_SIZE_SHIFT (12)
 #endif
-#define IPC_MAX_MSGWORDS ((IPC_MAX_MSGBYTES / ARM_REG_SIZE))
+// runtime error
+#define EIPCINVALIDARGS        1
+#define EIPCMSGTOOLONG         1
+#define EIPCINVALIDOPS         1
+#define EIPCOUTIPCBUF          1
+// init error
+#define EIPCREQSHM             0
+#define EIPCCREATEP            0
+#define EIPCINVALIDPAGES       0
+#define EIPCINVALIDBUFSIZE     0
+#define EIPCCREATATTRNODE      0
+
+#define IPC_MIN_BUFBYTES       32
+#define IPC_MAX_BUFBYTES       512
+#define IPC_MAX_MSGBYTES       ((sizeof(unsigned long) << 8) - sizeof(unsigned long))
+#define IPC_MAX_MSGCOUNT       252
+#define IPC_SHM_HEADER_BYTES   512
+
+// debug macro
+#define IPC_SHM_DATA_ONLY_TEST 1
+#define IPC_SHM_TEST_LOG       0
+#endif
+
+#if ENABLE_IPC_SHM == 1
+#define ENABLE_IPC_SHM_SMSG      0
+#define EP_IPC_TEST_COUNT        1
 
 #define EP_LOCK_INIT(lock, flag) pthread_spin_init(lock, flag)
-#define EP_LOCK(lock) pthread_spin_lock(lock)
-#define EP_TRYLOCK(lock) pthread_spin_trylock(lock)
-#define EP_UNLOCK(lock) pthread_spin_unlock(lock)
+#define EP_LOCK(lock)            pthread_spin_lock(lock)
+#define EP_TRYLOCK(lock)         pthread_spin_trylock(lock)
+#define EP_UNLOCK(lock)          pthread_spin_unlock(lock)
 
-#define SYSCALL_SEND(cptr, tag) set_tag(cptr, tag);
-#define SYSCALL_RECV(cptr, tag) get_tag(cptr, tag);
-volatile unsigned int g_tag = 0;
+#if (IPC_SHM_DATA_ONLY_TEST == 1)
+#define IPC_SEND_CTRL(cptr, tag, idx) set_tag(cptr, tag, idx)
+#define IPC_RECV_CTRL(cptr, tag, idx) get_tag(cptr, tag, idx)
+#else
+#define IPC_SEND_CTRL(cptr, tag, block) __doipc1(cptr, tag, block)
+#define IPC_RECV_CTRL(cptr, tag, block) __doipc1(cptr, tag, block)
+#endif
+#endif
 
-static inline unsigned int get_tag(unsigned long cptr, unsigned int tag)
+#if ENABLE_IPC_SHM == 1
+#if (IPC_SHM_DATA_ONLY_TEST == 1)
+// only for test
+volatile unsigned int g_tag[IPC_MAX_MSGCOUNT] = {0};
+
+unsigned int get_tag(unsigned long cptr, unsigned int tag, unsigned int idx)
 {
-    return g_tag;
+    return g_tag[idx];
 }
-static inline unsigned int set_tag(unsigned long cptr, unsigned int tag)
+unsigned int set_tag(unsigned long cptr, unsigned int tag, unsigned int idx)
 {
-    g_tag = tag;
+    g_tag[idx] = tag;
+    return tag;
 }
+#endif
 
 typedef pthread_spinlock_t spinlock_t;
-typedef unsigned long cptr_t;
-
-typedef struct ep_ipc_attr
-{
-    cptr_t ep;
-    size_t pages;
-    void *shmaddr;
-    unsigned int flag;
-} ep_ipc_attr;
-
-enum
-{
+typedef unsigned long      cptr_t;
+enum {
     FREE_IDX,
     FULL_IDX
 };
 
-typedef struct _ep_ipc_header
-{
-    spinlock_t rwlock;
-    volatile unsigned char slist[2];
-    volatile unsigned char slist_len[2];
-    unsigned int tag[IPC_MAX_MSGCOUNT];
-    struct
-    {
-        volatile unsigned char next_buf_idx; // next buf in current static list
-        volatile unsigned char msg_count;    // msg used bufs count
-    } ipcinfo[IPC_MAX_MSGCOUNT];
-} _ep_ipc_header;
+typedef struct ep_ipc_attr {
+    cptr_t ep;        // cptr of endpoint
+    void  *shmaddr;   // viraddr of shm
+} ep_ipc_attr_t;
 
-typedef union ep_ipc_header
-{
+typedef struct ep_ipc_bufinfo {
+    volatile unsigned char next_buf_idx;   // next buf in current static list
+    volatile unsigned char msg_count;      // msg used bufs count
+} ep_ipc_bufinfo_t;
+
+typedef struct _ep_ipc_header {
+    volatile int            rwlock;         // spinlock for shm header
+    volatile unsigned char  slist[1];       // first buf_idx in current list
+    volatile unsigned char  slist_len[1];   // current list length
+    volatile unsigned short userbufsize;    // user defined each ipcbuf bytes
+    struct ep_ipc_bufinfo   ipcinfo[IPC_MAX_MSGCOUNT];
+} _ep_ipc_header_t;
+
+typedef union ep_ipc_header {
     struct _ep_ipc_header header;
-    char format[IPC_MAX_MSGBYTES];
-} ep_ipc_header;
+    char                  format[IPC_SHM_HEADER_BYTES];   // make sure shm header use 512B
+} ep_ipc_header_t;
 
-typedef struct ep_ipc_buffer
-{
-    unsigned long msgs[IPC_MAX_MSGWORDS]; // msg contents
-} ep_ipc_buffer;
-
-typedef struct ep_ipc_que
-{
-    union ep_ipc_header header;
-    struct ep_ipc_buffer que[0];
-} ep_ipc_que;
+// struct to manage shm
+typedef struct ep_ipc_que {
+    union ep_ipc_header header;   // ipcbufs info
+    char                que[0];   // ipcbufs
+} ep_ipc_que_t;
 
 // static list ops
+// insert a continuous seq in @type's list
 static inline void seq_in_static_list(struct _ep_ipc_header *header, int start, int end, int type, int bufcount)
 {
-    int first = header->slist[type];
-    int next = header->ipcinfo[first].next_buf_idx;
-    header->ipcinfo[end].next_buf_idx = next;
-    header->ipcinfo[first].next_buf_idx = start;
-
-    header->slist_len[type] += bufcount;
+    if (bufcount) {
+        header->ipcinfo[end].next_buf_idx  = header->slist[type];
+        header->slist[type]                = start;
+        //
+        header->slist_len[type]           += bufcount;
+    }
 }
 
+// get and delete a continuous seq from @type's list
+// return start index of seq
 static inline int seq_out_static_list(struct _ep_ipc_header *header, int type, int bufcount)
 {
     int first = header->slist[type];
-    int next = first;
-    int pre = 0;
-    for (int i = 0; i < bufcount; i++)
-    {
-        pre = first;
+    int next  = first;
+    for (int i = 0; i < bufcount; i++) {
         first = header->ipcinfo[first].next_buf_idx;
     }
     header->slist_len[type] -= bufcount;
-    header->slist[type] = first;
-    header->ipcinfo[pre].next_buf_idx = -1;
-    printf("start:%d\tend:%d", next, pre);
+    header->slist[type]      = first;
     return next;
 }
 
-// init
-// 1
-unsigned long init_ep_ipc_attr(struct ep_ipc_attr *ipc_attr, unsigned long pages, unsigned long flag)
+// calculate total ipcbuf in ep
+static inline unsigned long calculate_ipcbuf_count(const unsigned long pages, const unsigned long bufsize)
 {
-    if (!pages || pages > IPC_MAX_MSGQUEPAGES)
-    {
-        pages = IPC_MAX_MSGQUEPAGES;
-    }
-    ipc_attr->pages = pages;
-    return pages;
+    unsigned long bufcount  = pages << PAGE_SIZE_SHIFT;
+    bufcount               -= sizeof(union ep_ipc_header);
+    return (bufcount / bufsize);
 }
 
-// 2
-static inline unsigned long calculate_ipcbuf_count(unsigned long pages)
-{
-    unsigned long bufcount = pages << PAGE_BITS;
-    bufcount -= sizeof(union ep_ipc_header);
-    return (bufcount >> IPC_MAX_MSGBITS);
-}
-
-static inline unsigned long init_ep_ipc_que_header(void *shmaddr, unsigned long pages)
+// init ipc header in shm of ep
+static inline unsigned long init_ep_ipc_que_header(void *shmaddr, const unsigned long pages,
+                                                   const unsigned long bufsize)
 {
     struct _ep_ipc_header *ipc_header = (struct _ep_ipc_header *)shmaddr;
     // init spinlock
-    EP_LOCK_INIT(&(ipc_header->rwlock), PTHREAD_PROCESS_SHARED);
-
-    ipc_header->slist[FREE_IDX] = 0;
-    ipc_header->slist[FULL_IDX] = -1;
+    EP_LOCK_INIT((spinlock_t *)&(ipc_header->rwlock), 0);
 
     // init ipcinfo
     // cal buf count
-    unsigned long bufcount = calculate_ipcbuf_count(pages);
+    unsigned long bufcount = calculate_ipcbuf_count(pages, bufsize);
 
-    for (int i = 0; i < bufcount - 1; i++)
-    {
+    for (int i = 0; i < bufcount - 1; i++) {
         ipc_header->ipcinfo[i].next_buf_idx = i + 1;
     }
 
+    ipc_header->slist[FREE_IDX]                    = 0;
     ipc_header->ipcinfo[bufcount - 1].next_buf_idx = -1;
-    ipc_header->slist_len[FREE_IDX] = bufcount;
-    ipc_header->slist_len[FULL_IDX] = 0;
+    ipc_header->slist_len[FREE_IDX]                = bufcount;
+    ipc_header->userbufsize                        = bufsize;
 
     return bufcount;
 }
 
-static inline int check_ipcque_size(size_t pages)
+unsigned long init_ep_ipc_que(void *shmaddr, const unsigned long pages, const unsigned long bufsize)
 {
-    if (!pages || pages > IPC_MAX_MSGQUEPAGES)
-    {
-        return -1;
-    }
-    return 0;
+    return init_ep_ipc_que_header(shmaddr, pages, bufsize);
 }
 
-unsigned long init_ep_ipc_que(struct ep_ipc_attr *ipc_attr)
+static int _ipc_shm_send_data(void *shmaddr, const void *buf, const unsigned long size)
 {
-    void *shmaddr = ipc_attr->shmaddr;
-    unsigned long bufcount = init_ep_ipc_que_header(shmaddr, ipc_attr->pages);
-    return bufcount;
-}
+    // calculate bufs count for current ipc
+    struct _ep_ipc_header *header   = (struct _ep_ipc_header *)shmaddr;
+    unsigned short         bufsize  = header->userbufsize;
+    int                    len      = (size + sizeof(unsigned long) - 1) / sizeof(unsigned long);
+    int                    bufcount = (size + bufsize - 1) / bufsize;
 
-// send
-unsigned long _ipc_send(struct ep_ipc_attr *attr, void *buf, unsigned long size)
-{
-    // data flow
-    struct _ep_ipc_header *header = (struct _ep_ipc_header *)(attr->shmaddr);
-    int len = (size + ARM_REG_SIZE - 1) / ARM_REG_SIZE;
-    int bufcount = size / IPC_MAX_MSGBYTES;
-
-    // get bufs from free list
-    EP_LOCK(&(header->rwlock));
-    if (bufcount > header->slist_len[FREE_IDX])
-    {
-        EP_UNLOCK(&(header->rwlock));
-        return -EOUTIPCBUF;
+    // lock shm header and get a continuous bufs list from free list
+    EP_LOCK((spinlock_t *)&(header->rwlock));
+    if (bufcount > header->slist_len[FREE_IDX]) {
+        EP_UNLOCK((spinlock_t *)&(header->rwlock));
+        return -EIPCOUTIPCBUF;
     }
     int start = seq_out_static_list(header, FREE_IDX, bufcount);
-    EP_UNLOCK(&(header->rwlock));
+    EP_UNLOCK((spinlock_t *)&(header->rwlock));
 
-    //
-    int tag = msgtag_make(len, 0, start);
-    header->tag[start] = tag;
+    // make tag with index of start buf, opcode and msg length
+    int tag                          = msgtag_make(len, 0, start);
     header->ipcinfo[start].msg_count = bufcount;
 
-    struct ep_ipc_que *que = (struct ep_ipc_que *)header;
-    int end = start;
-    for (int i = 0; i < bufcount; i++)
-    {
-        printf("buf:%p | size:%lu | start:%d", buf, size, end);
-        memcpy(&(que->que[end]), buf, size > IPC_MAX_MSGBYTES ? IPC_MAX_MSGBYTES : size);
-        buf += IPC_MAX_MSGBYTES;
-        size -= IPC_MAX_MSGBYTES;
+    // copy sender buf to shm
+    char         *que                = ((struct ep_ipc_que *)header)->que;
+    unsigned long send_size          = size;
+    for (int i = 0; i < bufcount; i++) {
+        memcpy(que + bufsize * start, buf, send_size > bufsize ? bufsize : send_size);
+        buf       += bufsize;
+        send_size -= bufsize;
         //
-        end = header->ipcinfo[end].next_buf_idx;
+        start      = header->ipcinfo[start].next_buf_idx;
     }
+#if IPC_SHM_TEST_LOG == 1
+    printf("reg size:%lu | send size:%ld | len:%d | bufcount:%d | start_buf:%d | list_head:%d | next:%d\n",
+           sizeof(unsigned long), size, len, bufcount, start, header->slist[FREE_IDX],
+           header->ipcinfo[start].next_buf_idx);
+#endif
+    return tag;
+}
 
-#ifdef ENABLE_FULL_LIST
-    EP_LOCK(&(header->rwlock));
-    seq_in_static_list(header, start, end, FULL_IDX, bufcount);
-    EP_UNLOCK(&(header->rwlock));
+static int _ipc_shm_recv_data(void *attr, void *buf, unsigned int tag, unsigned long maxsize)
+{
+    // receiver get start_buf_idx and buf_len from tag
+    int                    start    = msgtag_get_extra(tag);
+    struct _ep_ipc_header *header   = (struct _ep_ipc_header *)attr;
+    unsigned short         bufsize  = header->userbufsize;
+    int                    bufcount = header->ipcinfo[start].msg_count;
+
+    // record start_buf_idx and end_buf_idx to simplify returning buf ops
+    int next                        = start;
+    int end                         = start;
+
+    char         *que               = ((struct ep_ipc_que *)header)->que;
+    unsigned long size              = msgtag_get_len(tag) * sizeof(unsigned long);
+    unsigned long tmpsize           = size;
+#if IPC_SHM_TEST_LOG == 1
+    printf("reg size:%lu | recv size:%lu| bufcount:%d | start_buf:%d | list_head:%d\n", sizeof(unsigned long), size,
+           bufcount, start, header->slist[FREE_IDX]);
 #endif
 
-    // control flow
-    printf("sendtag:0x%x", tag);
-    SYSCALL_SEND(attr->ep, tag);
-
-    return bufcount;
-}
-
-unsigned long _ipc_recv(struct ep_ipc_attr *attr, void *buf, unsigned long maxsize)
-{
-    // get tag
-    int tag = SYSCALL_RECV(attr->ep, tag);
-    int start = msgtag_get_extra(tag);
-    printf("recvidx:0x%x", start);
-
-    //
-    struct _ep_ipc_header *header = (struct _ep_ipc_header *)(attr->shmaddr);
-    int bufcount = header->ipcinfo[start].msg_count;
-    int next = start;
-    int end = 0;
-
-    //
-    struct ep_ipc_que *que = (struct ep_ipc_que *)header;
-    unsigned long size = msgtag_get_len(tag) * ARM_REG_SIZE;
-    unsigned long tmpsize = size;
-    printf("recvsize:%lu", size);
-
-    for (int i = 0; i < bufcount; i++)
-    {
-        printf("buf:%p | size:%lu | start:%d", buf, tmpsize, next);
-        memcpy(buf, &(que->que[next]), tmpsize > IPC_MAX_MSGBYTES ? IPC_MAX_MSGBYTES : tmpsize);
-        buf += IPC_MAX_MSGBYTES;
-        tmpsize -= IPC_MAX_MSGBYTES;
-        end = next;
-        next = header->ipcinfo[next].next_buf_idx;
+    // copy data from shm to receiver buf
+    for (int i = 0; i < bufcount; i++) {
+        memcpy(buf, que + bufsize * next, tmpsize > bufsize ? bufsize : tmpsize);
+        buf     += bufsize;
+        tmpsize -= bufsize;
+        end      = next;
+        next     = header->ipcinfo[next].next_buf_idx;
     }
-    printf("start:%d\tend:%d", start, end);
-    //
-    EP_LOCK(&(header->rwlock));
-    seq_in_static_list(header, start, end, FREE_IDX, bufcount);
-    EP_UNLOCK(&(header->rwlock));
 
+    // lock shm header to return bufs currently used
+    EP_LOCK((spinlock_t *)&(header->rwlock));
+    seq_in_static_list(header, start, end, FREE_IDX, bufcount);
+    EP_UNLOCK((spinlock_t *)&(header->rwlock));
     return size;
 }
+
+unsigned int ipc_shm_send(cptr_t ep, void *shmaddr, const void *buf, const unsigned long size, const char block)
+{
+    // check params
+    if (!shmaddr || !buf) {
+        return -EIPCINVALIDARGS;
+    }
+    if (size > IPC_MAX_MSGBYTES) {
+        return -EIPCMSGTOOLONG;
+    }
+
+    // send data
+    // short msg and long msg use different way to send, also means they received in different ways
+    int tag = 0;
+#if ENABLE_IPC_SHM_SMSG == 1
+    if (size > MAX_IPC_SHM_SMSG_BYTES) {
+#endif
+        // copy data to shm and return tag for receiver
+        tag = _ipc_shm_send_data(shmaddr, buf, size);
+        if (tag == -EIPCOUTIPCBUF) {
+            return tag;
+        }
+#if ENABLE_IPC_SHM_SMSG == 1
+    } else {
+        tag = _ipc_shm_send_short_data(buf, size);
+    }
+#endif
+
+    // control flow, send tag to receiver
+#if IPC_SHM_TEST_LOG == 1
+    printf("send tag:%x\n", tag);
+#endif
+    return IPC_SEND_CTRL(ep, tag, block);
+}
+
+unsigned int ipc_shm_recv(cptr_t ep, void *shmaddr, void *buf, const unsigned long maxsize, const char block)
+{
+    // check params
+    if (!shmaddr || !buf) {
+        return -EIPCINVALIDARGS;
+    }
+
+    // recv tag from sender
+    // short msg and long msg use different way to send, also means they received in different ways
+    unsigned int tag = msgtag_make(0, 0, 0);
+    tag              = IPC_RECV_CTRL(ep, tag, block);
+    if (tag == -1) {
+        return tag;
+    }
+#if IPC_SHM_TEST_LOG == 1
+    printf("recv tag:%x\n", tag);
+#endif
+
+#if ENABLE_IPC_SHM_SMSG == 1
+    if (msgtag_get_extra(tag) != 0xff) {
+#endif
+        // used tag from sender to received data from shm
+        tag = _ipc_shm_recv_data(shmaddr, buf, tag, maxsize);
+#if ENABLE_IPC_SHM_SMSG == 1
+    } else {
+        tag = _ipc_shm_recv_short_data(tag, buf, maxsize);
+    }
+#endif
+    return tag;
+}
+
+#endif
+#endif

@@ -3,6 +3,7 @@
 // #define __USE_XOPEN2K
 #include <pthread.h>
 #include <stdlib.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 void  vdso_init_from_sysinfo_ehdr(unsigned long base);
@@ -39,19 +40,26 @@ void *client_pthread(void *arg)
     return NULL;
 }
 
+vdso_data_t vdso_data = {.val = 0};
+
 int main(int argc, char *argv[])
 {
     LOG_DEBUG("vdso_start:%p, vdso_end:%p", vdso_start, vdso_end);
-    vdso_data_t vdso_data = {.val = 0};
     vdso_info_t vdso_info = {.vdso_code_vaddr = vdso_start,
                              .vdso_data_vaddr = &vdso_data};
-    pthread_t   client    = 0;
-    pthread_create(&client, NULL, client_pthread, &vdso_info);
-    int i = 1;
-    while (1) {
-        _kernel_set_info(&vdso_data, &i);
-        i++;
-        sleep(1);
+    // pthread_t   client    = 0;
+    // pthread_create(&client, NULL, client_pthread, &vdso_info);
+
+    if (!fork()) {
+        // child process as client
+        client_pthread(&vdso_info);
+    } else {
+        int i = 1;
+        while (1) {
+            _kernel_set_info(&vdso_data, &i);
+            i++;
+            sleep(1);
+        }
     }
     // vgetinfo(&vdso_test_data, &data);
     // vgetinfo_n();
