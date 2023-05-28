@@ -68,7 +68,7 @@ static inline void *rpc_shm_block_alloc(unsigned long *size)
     if (*size > PAGE_SIZE) {
         return NULL;
     }
-    unsigned long real_size = *size;
+    unsigned long real_size  = *size;
     real_size               += PAGE_SIZE - 1;
     real_size               &= ~(PAGE_SIZE - 1);
     LOG_DEBUG("Wanted %lu bytes, Allocate %lu bytes", *size, real_size);
@@ -145,6 +145,15 @@ void *rpc_service_handler(void *arg)
                 LOG_DEBUG("RPC SERVER service for client_id:%lx, shm_vaddr:%p, handler:%p", params.client_id, rpc_client_shm->block_start, service_handler);
                 service_handler(&params);
                 rpc_service_awake_waiter(service);
+                break;
+            case CLIENT_REQ_SERVICE_WITHOUT_RSP:
+                service_handler = service->srv_handlers.handlers[params.req_type];
+                if (!rpc_client_shm) {
+                    LOG_ERROR("RPC SERVER service for client_id:%lx not found", params.client_id);
+                    break;
+                }
+                LOG_DEBUG("RPC SERVER service for client_id:%lx, shm_vaddr:%p, handler:%p", params.client_id, rpc_client_shm->block_start, service_handler);
+                service_handler(&params);
                 break;
             case CLIENT_STOP_SERVICE:
                 break;

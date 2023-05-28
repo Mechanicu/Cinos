@@ -1,9 +1,15 @@
 #include "../include/rpc_service.h"
 #include <string.h>
+#include <syscall.h>
 
 // for client
 
 extern linkhash_t *service_cap_hash;
+
+static unsigned long gettid()
+{
+    return syscall(SYS_gettid);
+}
 
 static inline void *rpc_client_init(const cptr_t service_cap)
 {
@@ -12,7 +18,7 @@ static inline void *rpc_client_init(const cptr_t service_cap)
         INIT_LIST_HEAD(&(rpc_client->service_hook));
         sem_init(&(rpc_client->client_sem), 0, 0);
         rpc_client->service_cap          = service_cap;
-        rpc_client->rpc_params.client_id = pthread_self();
+        rpc_client->rpc_params.client_id = gettid();
     }
     return rpc_client;
 }

@@ -3,6 +3,7 @@
 #include "../include/list.h"
 #include "../include/log.h"
 #include <pthread.h>
+#include <syscall.h>
 
 linkhash_t *service_cap_hash = NULL;
 
@@ -71,9 +72,14 @@ void rpc_service_unregister(const unsigned long service_id)
     LOG_WARING("RPC service%lu not found in hash table.", service_id);
 }
 
+static unsigned long gettid()
+{
+    return syscall(SYS_gettid);
+}
+
 cptr_t rpc_client_security_check(const unsigned long service_id)
 {
-    pthread_t cur_tid     = pthread_self();
+    pthread_t cur_tid     = gettid();
     cptr_t    service_cap = linkhash_get(service_id, service_cap_hash);
     LOG_DEBUG("client thread id:0x%lx, srv_cptr:0x%lx, srv_id:%lu", cur_tid, service_cap, service_id);
     return service_cap;
@@ -81,7 +87,7 @@ cptr_t rpc_client_security_check(const unsigned long service_id)
 
 void *rpc_get_capobj_bycptr(const cptr_t service_cap)
 {
-    pthread_t cur_tid = pthread_self();
+    pthread_t cur_tid = gettid();
     LOG_DEBUG("RPC GET CAP_OBJ, thread id:0x%lx, srv_cptr:0x%lx, srv_cap_obj:%p", cur_tid, service_cap, (void *)service_cap);
     return ((void *)service_cap);
 }

@@ -1,8 +1,9 @@
 #include "../vdso.h"
+#include "../vdso_srv.h"
 
-void _kernel_get_info(const void *vdso_data, void *data)
+void* _kernel_get_info(const void *vdso_data)
 {
-    *(int *)data = ((vdso_data_t *)vdso_data)->val;
+    return ((srv_vdso_data_t *)vdso_data)->val;
 }
 
 void _kernel_get_info_null(void)
