@@ -32,9 +32,10 @@ static void *mempool_ctrl_alloc_default(void *ctrl, const unsigned long size)
         return NULL;
     }
 
-    mempool_ctrl_t *handler   = (mempool_ctrl_t *)ctrl;
-    unsigned long   slot      = get_real_size_bits(size);
-    unsigned long   real_size = 1ull << slot;
+    mempool_ctrl_t *handler    = (mempool_ctrl_t *)ctrl;
+    unsigned long   slot       = get_real_size_bits(size);
+    unsigned long   real_size  = 1ull << slot;
+    slot                      -= MEMPOOL_MIN_SLAB_BITS;
     if (real_size > handler->remainsize || slot > handler->slab_count) {
         return NULL;
     }
@@ -72,6 +73,7 @@ static void mempool_ctrl_free_default(void *ctrl, void *ptr, const unsigned long
     }
     unsigned long slot       = get_real_size_bits(size);
     unsigned long real_size  = 1ull << slot;
+    slot                    -= MEMPOOL_MIN_SLAB_BITS;
 
     *(unsigned long *)ptr    = (unsigned long)(handler->slabs[slot]);
     handler->slabs[slot]     = ptr;
