@@ -41,14 +41,13 @@ node_ep_list_t *check_nodes_list(
     node_ep_t      *monitor,
     node_addr_t    *newnode,
     mempool_ctrl_t *mempool);
-
 int server_node_register(
     node_ep_list_t *global_eplist,
     node_ep_t      *monitor,
     mempool_ctrl_t *mempool);
-
 int insert_node_ep(
     node_ep_list_t *eplist,
     node_ep_t      *ep,
     node_addr_t    *epaddr);
+unsigned long get_local_nodeid(void);
 #endif

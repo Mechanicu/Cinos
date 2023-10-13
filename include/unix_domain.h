@@ -27,6 +27,7 @@ us_connect_t *unix_socket_listen(
     const int   type,
     const int   protocol,
     const char *sockpath,
+    const short port,
     const int   back_log);
 
 us_connect_t *unix_socket_connect(
@@ -34,6 +35,7 @@ us_connect_t *unix_socket_connect(
     const int   type,
     const int   protocol,
     const char *sockpath,
+    const short port,
     const int   back_log);
 
 static unsigned long xwrite(const int fd, void *buf, const unsigned long size)

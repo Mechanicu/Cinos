@@ -8,6 +8,8 @@
 #include <string.h>
 #include <unistd.h>
 
+static unsigned long g_local_nodeid = -1;
+
 static node_ep_list_t *check_node_list_bysocket(
     const node_ep_t *monitor,
     node_addr_t     *newnode,
@@ -55,6 +57,7 @@ static node_ep_list_t *check_node_list_bysocket(
     for (int i = 0; i < ep_count; i++) {
         eplist->eplist[i].node_id = i;
     }
+    g_local_nodeid       = current_ep_id;
     eplist->ep_count     = ep_count;
     eplist->ep_addr_list = epaddr_cache;
     return eplist;
@@ -188,4 +191,9 @@ int insert_node_ep(
               eplist->eplist[new_ep_id].node_id, eplist->eplist[new_ep_id].epfd, eplist->ep_addr_list[new_ep_id].node_path);
     eplist->ep_count++;
     return 0;
+}
+
+unsigned long get_local_nodeid(void)
+{
+    return g_local_nodeid;
 }

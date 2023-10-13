@@ -1,3 +1,5 @@
+#ifndef NODE_KVMAP_H
+#define NODE_KVMAP_H
 #include <map>
 #include <string>
 
@@ -52,3 +54,4 @@ private:
     std::map<dsdb_kobj_t, dsdb_vobj_t>
         dsdb_map;
 };
+#endif
