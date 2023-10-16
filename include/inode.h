@@ -10,14 +10,11 @@
 
 #define USERFS_MAX_FILE_NAME_LEN 256
 
-enum {
-    USERFS_FREE,
-    USERFS_SUPER,
-    USERFS_DENTRY,
-    USERFS_BGROUP_DESC,
-    USERFS_DATA
-} block_type;
-
+#define USERFS_BTYPE_FREE        (0x12345678u)
+#define USERFS_BTYPE_SUPER       (83u)
+#define USERFS_BTYPE_DENTRY      (69u)
+#define USERFS_BTYPE_BGROUP_DESC (71u)
+#define USERFS_BTYPE_DATA        (68u)
 struct userfs_super_block {
     /*timestamp*/
     uint32_t s_wtime;
@@ -31,7 +28,11 @@ struct userfs_super_block {
     uint32_t s_data_block_group_count;
     uint32_t s_free_data_block_group_count;
     /*metablock alloc by super block*/
-    uint32_t s_first_metablock_off;
+    uint32_t s_first_metablock;
+    uint32_t s_first_bgroup_desc_mblock;
+    uint32_t s_bgroup_desc_size;
+    uint32_t s_bgroup_desc_per_mb_count;
+    uint32_t s_first_dentry_mblock;
     uint32_t s_metablock_count;
     uint32_t s_free_metablock_count;
     uint32_t s_metablock_size;
@@ -70,20 +71,19 @@ struct userfs_block_group_descriptor {
 };
 
 struct userfs_dentry_name {
-    uint8_t namelen;
-    int8_t  name[3];
+    char name[0];
 };
 
 struct userfs_dentry {
-    uint32_t                  inode_num;
-    struct userfs_dentry_name name;
+    uint32_t                  d_first_dblock;
+    struct userfs_dentry_name d_name;
 };
 
 struct userfs_metadata_block {
     struct userfs_block_header h;
-    uint8_t                    block_type;
+    uint32_t                   block_type;
     union {
-        struct userfs_block_group_descriptor bg_desc[0];
+        struct userfs_block_group_descriptor bg_desc_table[0];
         struct userfs_dentry                 dentry_table[0];
         struct userfs_super_block            sb[0];
     };

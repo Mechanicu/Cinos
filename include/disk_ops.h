@@ -9,6 +9,6 @@
 off_t user_disk_write(const void *buf, off_t size, off_t disk_off);
 off_t user_disk_read(void *buf, off_t size, off_t disk_off);
 int   userfs_disk_open(const char *pathname);
-int   user_disk_close(int fd);
+int   user_disk_close(void);
 
 #endif

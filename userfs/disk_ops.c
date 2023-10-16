@@ -24,7 +24,7 @@ int userfs_disk_open(const char *pathname)
     return 0;
 }
 
-int user_disk_close(int fd)
+int user_disk_close(void)
 {
-    return close(fd);
+    return close(g_disk_fd);
 }

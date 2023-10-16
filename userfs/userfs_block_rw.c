@@ -7,10 +7,10 @@
 int userfs_mbbuf_list_flush(
     uint32_t first_mblock,
     uint32_t metablock_size,
-    b_buf_t *buf_list,
+    userfs_bbuf_t *buf_list,
     uint16_t buf_list_len)
 {
-    b_buf_t *cur_flush_buf = buf_list;
+    userfs_bbuf_t *cur_flush_buf = buf_list;
     for (int i = 0; i < buf_list_len; i++) {
         off_t    woff      = metablock_size * (buf_list->b_blocknr + first_mblock);
         uint32_t expect_wb = buf_list->b_size;
@@ -30,10 +30,10 @@ int userfs_mbbuf_list_flush(
 int userfs_mbbuf_list_read(
     uint32_t first_mblock,
     uint32_t metablock_size,
-    b_buf_t *buf_list,
+    userfs_bbuf_t *buf_list,
     uint16_t buf_list_len)
 {
-    b_buf_t *cur_flush_buf = buf_list;
+    userfs_bbuf_t *cur_flush_buf = buf_list;
     for (int i = 0; i < buf_list_len; i++) {
         off_t    roff      = metablock_size * (buf_list->b_blocknr + first_mblock);
         uint32_t expect_rb = buf_list->b_size;
@@ -52,7 +52,7 @@ int userfs_mbbuf_list_read(
 
 int userfs_read_metadata_block(
     uint32_t first_mblock,
-    b_buf_t *mb_buf,
+    userfs_bbuf_t *mb_buf,
     uint32_t metablock_size,
     uint32_t target_mb_id)
 {
