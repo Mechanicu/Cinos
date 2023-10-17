@@ -83,13 +83,15 @@ int bitmap_get_first_free(bitmap_t *bitmap)
         return -1;
     }
     int first_pos = atomic_get(&(bitmap->first_free_pos));
-    bitmap_set(bitmap, first_pos);
-    int pos = first_pos + 1;
-    for (; pos < bitmap->bytes << 3, BITMAP_POS_ISNULL(bitmap->bitmap, pos); pos++)
-        ;
-    LOG_DEBUG("bitmap_get_first_free:%d, current_first:%d", first_pos, pos);
-    if (pos < bitmap->bytes << 3) {
-        atomic_set(&(bitmap->first_free_pos), pos);
+    if (first_pos == bitmap->bytes << 3) {
+        LOG_ERROR("bitmap full");
+        return -1;
     }
+
+    bitmap_set(bitmap, first_pos);
+    int pos = (first_pos + 1) % (bitmap->bytes << 3);
+    for (; pos < bitmap->bytes << 3, BITMAP_POS_ISNULL(bitmap->bitmap, pos); pos++);
+    LOG_DEBUG("bitmap_get_first_free:%d, current_first:%d", first_pos, pos);
+    atomic_set(&(bitmap->first_free_pos), pos);
     return first_pos;
 }

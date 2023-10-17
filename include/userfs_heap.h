@@ -29,9 +29,11 @@ userfs_mrheap_elem_t *userfs_mrheap_extract_heaptop(
 userfs_mrheap_elem_t *userfs_mrheap_get_heaptop(
     userfs_mrheap_t *minHeap);
 userfs_mrheap_elem_t *userfs_mrheap_insert(
-    userfs_mrheap_t *minHeap,
-    uint32_t         block_nr,
-    uint32_t         remain_blocks);
+    userfs_mrheap_t      *minHeap,
+    uint32_t              block_nr,
+    uint32_t              remain_blocks,
+    userfs_mrheap_elem_t *elem_ptr);
+
 userfs_mrheap_t *userfs_mrheap_create(
     uint32_t capacity);
 void userfs_mrheap_destroy(

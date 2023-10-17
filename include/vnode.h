@@ -18,7 +18,6 @@ typedef struct block_buffer                  userfs_bbuf_t;
 typedef struct block_group_descriptors_index userfs_bgd_index_t;
 
 struct block_group_descriptors_index_list {
-    uint32_t                                       bgi_bgd_per_mb_count;
     uint32_t                                       bgi_bgd_mb_count;
     userfs_bbuf_t                                **bgi_blocknr2bbuf;
     userfs_mrheap_t                               *bgi_maxroot_heap;

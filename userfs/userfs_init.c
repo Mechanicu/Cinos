@@ -16,31 +16,14 @@
 #define USERFS_MIN_BLOCK_SIZE  (1 << 10 << 10)
 #define USERFS_MAX_FILE_SIZE32 UINT32_MAX
 
-#if ENABLE_USERFS_MEMPOOL == 1
-#include "mempool.h"
-mempool_ctrl_t userfs_mem_pool;
-#else
-#define USERFS_MEM_ALLOC(size) malloc(size)
-#define USERFS_MEM_FREE(ptr)        \
-    while ((void *)(ptr) != NULL) { \
-        free(ptr);                  \
-        ptr = NULL;                 \
-    }
-#endif
-
 #define USERFS_STATIC
-#define USERFS_LOG_DESC                        "USERFS INIT"
 
 #define USERFS_DEFAULT_MAX_MBBUF_FREE_LIST_LEN 256
-#define USERFS_DEFAULT_MAX_DBBUF_FREE_LIST_LEN 256
 
-userfs_super_block_t *g_sb;
-pthread_spinlock_t    mbbuf_lock          = 1;
-userfs_bbuf_t        *free_mbbuf_list     = NULL;
-atomic_t              free_mbbuf_list_len = {0};
-pthread_spinlock_t    dbbuf_lock          = 1;
-userfs_bbuf_t        *free_dbbuf_list     = NULL;
-atomic_t              free_dbbuf_list_len = {0};
+static userfs_super_block_t *g_sb;
+static pthread_spinlock_t    mbbuf_lock          = 1;
+static userfs_bbuf_t        *free_mbbuf_list     = NULL;
+static atomic_t              free_mbbuf_list_len = {0};
 
 USERFS_STATIC uint32_t get_real_block_size(
     const uint32_t expect_block_size)
@@ -68,7 +51,7 @@ USERFS_STATIC userfs_bbuf_t *userfs_alloc_mbbuf(
         LOG_DESC(DBG, "ALLOC MBLOCK BUF", "Alloc mbbuf:%p, next free one:%p",
                  mb_buf, free_mbbuf_list);
         memset(mb_buf, 0, sizeof(userfs_bbuf_t));
-        memset(mb_buf->b_data, 0, metablock_size);
+        mb_buf->b_size = metablock_size;
         return mb_buf;
     }
     /*if no avaliable mbbuf, then alloc one*/
@@ -84,7 +67,7 @@ USERFS_STATIC userfs_bbuf_t *userfs_alloc_mbbuf(
         USERFS_MEM_FREE(mb_buf);
         return NULL;
     }
-    memset(mb_buf->b_data, 0, metablock_size);
+    mb_buf->b_size = metablock_size;
     return mb_buf;
 }
 
@@ -128,7 +111,6 @@ userfs_bbuf_t *userfs_get_new_metadata_block(
     sb->s_free_metablock_count--;
     mb_buf->b_block_s_off = 0;
     mb_buf->b_blocknr     = target_mb_id;
-    mb_buf->b_size        = sb->s_metablock_size;
     mb_buf->b_type        = mb_type;
     LOG_DESC(DBG, "GET NEW METADATA BLOCK", "New mblock, block id:%u, block type:%u, mbbuf:%p, free mblock count:%u",
              mb_buf->b_blocknr, mb_buf->b_type, mb_buf, sb->s_free_metablock_count);
@@ -174,7 +156,6 @@ uint32_t userfs_get_used_metadata_blocklist(
         }
         uint32_t target_mb_id = mb_id[i];
         mb_buf->b_block_s_off = 0;
-        mb_buf->b_size        = sb->s_metablock_size;
         /*if request used block, then must read from disk to avoid data overwrite*/
         if (userfs_read_metadata_block(sb->s_first_metablock, mb_buf, sb->s_metablock_size, target_mb_id) < 0) {
             LOG_DESC(ERR, "GET USED METADATA BLOCK LIST", "Read metadata on disk failed");
@@ -207,7 +188,7 @@ userfs_super_block_t *userfs_suber_block_alloc(
     /*alloc block buffer for super block*/
     userfs_bbuf_t *sb_block_buf   = userfs_alloc_mbbuf(metadata_block_size);
     if (!sb_block_buf) {
-        LOG_DESC(ERR, USERFS_LOG_DESC, "alloc block buffer for super block failed");
+        LOG_DESC(ERR, "USERFS INIT", "alloc block buffer for super block failed");
         return NULL;
     }
 
@@ -238,11 +219,9 @@ userfs_super_block_t *userfs_suber_block_alloc(
     /**/
     sb_block_buf->b_type                            = USERFS_BTYPE_SUPER;
     sb_block_buf->b_blocknr                         = bitmap_get_first_free(&sb->s_metadata_block_bitmap);
-    sb_block_buf->b_size                            = metadata_block_size;
     *sb_bbuf                                        = sb_block_buf;
     /*init free block buf list and lock*/
     pthread_spin_init(&mbbuf_lock, 0);
-    pthread_spin_init(&dbbuf_lock, 0);
     return g_sb;
 }
 
@@ -250,6 +229,7 @@ USERFS_STATIC void userfs_bgroup_desc_block_init(
     const userfs_bbuf_t *bgroup_desc_bbuf,
     const uint32_t       blocks_per_group,
     const uint32_t       bgroup_desc_per_mb_count,
+    const uint32_t       bgroup_desc_size,
     const uint32_t       prev_block,
     const uint32_t       next_block)
 {
@@ -262,6 +242,8 @@ USERFS_STATIC void userfs_bgroup_desc_block_init(
         cur_bg_desc->bg_block_count      = blocks_per_group;
         cur_bg_desc->bg_free_block_count = cur_bg_desc->bg_block_count;
         bitmap_init(&cur_bg_desc->block_bm, blocks_per_group >> 3);
+        cur_bg_desc =
+            (userfs_bgroup_desc_t *)((char *)cur_bg_desc + bgroup_desc_size);
     }
 }
 
@@ -294,12 +276,12 @@ bg_desc size:%uB, bg_desc per mb:%u, mb bg_desc needs:%u",
     }
     bgroup_desc_table_list->b_list_len = 0;
     userfs_bgroup_desc_block_init(bgroup_desc_table_list, blocks_per_group,
-                                  bgroup_desc_per_mb_count, prev_block, sb->s_first_metablock);
+                                  bgroup_desc_per_mb_count, bgroup_desc_size, prev_block, sb->s_first_metablock);
     prev_block                     = bgroup_desc_table_list->b_blocknr;
     sb->s_first_bgroup_desc_mblock = bgroup_desc_table_list->b_blocknr;
     bgroup_desc_table_lh           = bgroup_desc_table_list;
 
-    for (int i = 1; i < bgroup_desc_mb_count; i++) {
+    for (int i = 1; i < bgroup_desc_mb_count; i++, bgroup_desc_table_lh->b_list_len++) {
         userfs_bbuf_t *new_bbuf = userfs_get_new_metadata_block(sb, USERFS_BTYPE_BGROUP_DESC);
         if (!new_bbuf) {
             LOG_DESC(ERR, "BGROUP DESC TABLE INIT", "Alloc mbbuf for bgroup_desc_table failed, current alloc mbbuf:%d",
@@ -307,11 +289,10 @@ bg_desc size:%uB, bg_desc per mb:%u, mb bg_desc needs:%u",
             break;
         }
         userfs_bgroup_desc_block_init(new_bbuf, blocks_per_group,
-                                      bgroup_desc_per_mb_count, prev_block, sb->s_first_metablock);
+                                      bgroup_desc_per_mb_count, bgroup_desc_size, prev_block, sb->s_first_metablock);
         prev_block                                            = new_bbuf->b_blocknr;
         USERFS_MBLOCK(bgroup_desc_table_list->b_data)->h.next = new_bbuf->b_blocknr;
 
-        new_bbuf->b_list_len                                  = i;
         bgroup_desc_table_list->b_this_page                   = new_bbuf;
         bgroup_desc_table_list                                = new_bbuf;
     }
@@ -403,24 +384,23 @@ userfs_bgd_index_list_t *userfs_bgroupdesc_index_list_init(
     }
     memset(bg_index_list, 0, sizeof(userfs_bgd_index_list_t));
     /**/
-    uint32_t bgroup_idx_count           = sb->s_data_block_group_count;
-    uint32_t bgroup_per_mb_count        = sb->s_bgroup_desc_per_mb_count;
-    bg_index_list->bgi_list_ops         = bgd_index_list_ops;
-    bg_index_list->bgi_blocknr2bbuf     = USERFS_MEM_ALLOC(bgroup_idx_count / bgroup_per_mb_count);
-    bg_index_list->bgi_maxroot_heap     = userfs_mrheap_create(sizeof(userfs_bbuf_t *) * bgroup_idx_count);
-    bg_index_list->bgi_bgd_per_mb_count = bgroup_per_mb_count;
+    uint32_t bgroup_idx_count       = sb->s_data_block_group_count;
+    uint32_t bgroup_per_mb_count    = sb->s_bgroup_desc_per_mb_count;
+    bg_index_list->bgi_list_ops     = bgd_index_list_ops;
+    bg_index_list->bgi_blocknr2bbuf = USERFS_MEM_ALLOC(bgroup_idx_count / bgroup_per_mb_count);
+    bg_index_list->bgi_maxroot_heap = userfs_mrheap_create(sizeof(userfs_bbuf_t *) * bgroup_idx_count);
 
-    uint32_t       bgroup_id            = 0;
-    uint32_t       bgroup_mb            = 0;
-    uint32_t       bgroup_desc_size     = sb->s_bgroup_desc_size;
-    userfs_bbuf_t *cur_bg_desc_bbuf     = bgroup_desc_bbuf_list;
+    uint32_t       bgroup_id        = 0;
+    uint32_t       bgroup_mb        = 0;
+    uint32_t       bgroup_desc_size = sb->s_bgroup_desc_size;
+    userfs_bbuf_t *cur_bg_desc_bbuf = bgroup_desc_bbuf_list;
     while (cur_bg_desc_bbuf != NULL) {
         bg_index_list->bgi_blocknr2bbuf[bgroup_mb++] = cur_bg_desc_bbuf;
         uint32_t cur_mb_bgd_count =
             bgroup_idx_count > sb->s_bgroup_desc_per_mb_count ? sb->s_bgroup_desc_per_mb_count : bgroup_idx_count;
         for (int i = 0; i < cur_mb_bgd_count; i++) {
             userfs_bgroup_desc_t *cur_bg_desc_table = USERFS_MBLOCK(cur_bg_desc_bbuf->b_data)->bg_desc_table;
-            if (userfs_mrheap_insert(bg_index_list->bgi_maxroot_heap, bgroup_id, cur_bg_desc_table->bg_free_block_count) == NULL) {
+            if (userfs_mrheap_insert(bg_index_list->bgi_maxroot_heap, bgroup_id, cur_bg_desc_table->bg_free_block_count, NULL) == NULL) {
                 LOG_DESC(ERR, "USERFS BGROUP DESC INDEX LIST INIT", "Bgroup index heap insert failed, block id:%u, f_block_count:%u",
                          bgroup_id, cur_bg_desc_table->bg_free_block_count);
                 goto clean_up;

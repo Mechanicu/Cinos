@@ -6,6 +6,7 @@
 #include <malloc.h>
 #include <stdint.h>
 
+/**/
 userfs_super_block_t *userfs_suber_block_alloc(
     const uint32_t  block_size,
     const uint32_t  metadata_block_size,
@@ -40,6 +41,17 @@ userfs_bgd_index_list_t *userfs_bgroupdesc_index_list_init(
     const userfs_super_block_t  *sb,
     userfs_bgd_index_list_ops_t *bgd_index_list_ops);
 
+/**/
+userfs_bbuf_t *userfs_get_new_dblock(
+    userfs_super_block_t    *sb,
+    userfs_bgd_index_list_t *bgd_idx_list);
+
+userfs_bgroup_desc_t *userfs_bgdidx2bgd(
+    userfs_bgd_index_list_t *bgd_idx_list,
+    const uint32_t           bgd_per_mb_count,
+    const uint32_t           bgd_nr,
+    const uint32_t           bgd_size);
+
 #define UFS_BLOCK_SIZE       (1ul << 10 << 10 << 6)
 #define UFS_METABLOCK_SIZE   (1ul << 10 << 2)
 #define UFS_DISK_SIZE        (1ul << 10 << 10 << 10 << 10)
@@ -53,7 +65,7 @@ int main(int argc, char **argv)
 
     /*init super block*/
     userfs_super_block_t *g_sb = userfs_suber_block_alloc(UFS_BLOCK_SIZE, UFS_METABLOCK_SIZE, UFS_DISK_SIZE, &real_block_size, &sb_bbuf);
-    LOG_DESC(DBG, "Main", "dblock count:%u, dblock size:%uB, mblock size:%uB, mblock count:%u, f_mblock count:%u, first mblock:%u, mblock bitmap len:%u",
+    LOG_DESC(DBG, "Main", "dblock count:%u, dblock size:0x%xB, mblock size:0x%xB, mblock count:%u, f_mblock count:%u, first mblock:%u, mblock bitmap len:%u",
              g_sb->s_data_block_count,
              g_sb->s_data_block_size,
              g_sb->s_metablock_size,
@@ -105,7 +117,7 @@ int main(int argc, char **argv)
     userfs_bbuf_t *mount_sb_buf =
         userfs_mount_init(g_sb->s_metablock_size, g_sb->s_first_metablock, &mount_bg_desc_table, &mount_dentry_table);
     userfs_super_block_t *mount_sb = USERFS_MBLOCK(mount_sb_buf->b_data)->sb;
-    LOG_DESC(DBG, "Main", "dblock count:%u, dblock size:%uB, mblock size:%uB, mblock count:%u, f_mblock count:%u, first mblock:%u, mblock bitmap len:%u",
+    LOG_DESC(DBG, "Main", "dblock count:%u, dblock size:0x%xB, mblock size:0x%xB, mblock count:%u, f_mblock count:%u, first mblock:%u, mblock bitmap len:%u",
              mount_sb->s_data_block_count,
              mount_sb->s_data_block_size,
              mount_sb->s_metablock_size,
@@ -123,6 +135,12 @@ int main(int argc, char **argv)
     for (int i = 0; i < mount_bgd_idx_list->bgi_bgd_mb_count; i++, tmp = tmp->b_this_page) {
         LOG_DESC(DBG, "Main", "mblock:%u, expect bbuf:%p, real bbuf:%p",
                  mount_bgd_idx_list->bgi_bgd_mb_count, mount_bgd_idx_list->bgi_blocknr2bbuf[i], tmp);
+    }
+
+#define USERFS_TEST_INODE_COUNT (16 << 10)
+    userfs_bbuf_t *inode_bbuf[USERFS_TEST_INODE_COUNT];
+    for (int i = 0; i < USERFS_TEST_INODE_COUNT; i++) {
+        inode_bbuf[i] = userfs_get_new_dblock(mount_sb, mount_bgd_idx_list);
     }
 
     user_disk_close();

@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define USERFS_HEAP_LOG_LEVEL INF
+#define USERFS_HEAP_LOG_LEVEL DBG
 
 userfs_mrheap_t *userfs_mrheap_create(
     uint32_t capacity)
@@ -47,7 +47,7 @@ static int element_compare(
     const userfs_mrheap_elem_t *first,
     const userfs_mrheap_elem_t *second)
 {
-    return (first->bgi_bgroup_nr > second->bgi_bgroup_nr);
+    return (first->bgi_free_blocks_count < second->bgi_free_blocks_count);
 }
 
 static void heap_up(
@@ -83,15 +83,17 @@ static void heap_down(userfs_mrheap_t *minHeap, uint32_t index)
 }
 
 userfs_mrheap_elem_t *userfs_mrheap_insert(
-    userfs_mrheap_t *minHeap,
-    uint32_t         bgi_bgroup_nr,
-    uint32_t         bgi_free_blocks_count)
+    userfs_mrheap_t      *minHeap,
+    uint32_t              bgi_bgroup_nr,
+    uint32_t              bgi_free_blocks_count,
+    userfs_mrheap_elem_t *elem_ptr)
 {
     if (minHeap->size == minHeap->capacity) {
         LOG_DESC(ERR, "USERFS HEAP INSERT", "Heap is empty");
         return NULL;
     }
-    userfs_mrheap_elem_t *value = (userfs_mrheap_elem_t *)USERFS_HEAP_MEM_ALLOC(sizeof(userfs_mrheap_elem_t));
+    userfs_mrheap_elem_t *value =
+        !elem_ptr ? (userfs_mrheap_elem_t *)USERFS_HEAP_MEM_ALLOC(sizeof(userfs_mrheap_elem_t)) : elem_ptr;
     if (value == NULL) {
         LOG_DESC(ERR, "USERFS HEAP INSERT", "Heap is empty");
         return NULL;
@@ -140,7 +142,7 @@ static void userfs_mrheap_debug_function(void)
     userfs_mrheap_t *minHeap   = userfs_mrheap_create(heap_size);
 
     for (int i = 0; i < heap_size; i++) {
-        userfs_mrheap_elem_t *elem = userfs_mrheap_insert(minHeap, i, heap_size - i);
+        userfs_mrheap_elem_t *elem = userfs_mrheap_insert(minHeap, i, heap_size - i, NULL);
     }
 
     for (int i = 0; i < heap_size; i++) {

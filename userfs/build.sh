@@ -1,2 +1,8 @@
-SRC_FILE="userfs_init.c test_init.c userfs_block_rw.c bitmap.c disk_ops.c userfs_heap.c"
-gcc ${SRC_FILE} -I../include -lpthread
+SRC_FILE=" userfs_init.c"
+SRC_FILE+=" test_init.c"
+SRC_FILE+=" userfs_block_rw.c"
+SRC_FILE+=" bitmap.c"
+SRC_FILE+=" disk_ops.c"
+SRC_FILE+=" userfs_heap.c"
+SRC_FILE+=" userfs_file_ctrl.c"
+gcc -O2 ${SRC_FILE} -I../include -lpthread

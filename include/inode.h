@@ -15,6 +15,19 @@
 #define USERFS_BTYPE_DENTRY      (69u)
 #define USERFS_BTYPE_BGROUP_DESC (71u)
 #define USERFS_BTYPE_DATA        (68u)
+
+#if ENABLE_USERFS_MEMPOOL == 1
+#include "mempool.h"
+mempool_ctrl_t userfs_mem_pool;
+#else
+#define USERFS_MEM_ALLOC(size) malloc(size)
+#define USERFS_MEM_FREE(ptr)        \
+    while ((void *)(ptr) != NULL) { \
+        free(ptr);                  \
+        ptr = NULL;                 \
+    }
+#endif
+
 struct userfs_super_block {
     /*timestamp*/
     uint32_t s_wtime;
