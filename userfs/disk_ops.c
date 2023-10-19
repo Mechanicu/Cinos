@@ -1,16 +1,17 @@
 #include "inode.h"
+#include "disk_ops.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
 
 int g_disk_fd = 0;
 
-uint32_t user_disk_write(const void *buf, uint32_t size, uint32_t disk_off)
+uint64_t user_disk_write(const void *buf, uint64_t size, uint64_t disk_off)
 {
     return pwrite(g_disk_fd, buf, size, disk_off);
 }
 
-uint32_t user_disk_read(void *buf, uint32_t size, uint32_t disk_off)
+uint64_t user_disk_read(void *buf, uint64_t size, uint64_t disk_off)
 {
     return pread(g_disk_fd, buf, size, disk_off);
 }
