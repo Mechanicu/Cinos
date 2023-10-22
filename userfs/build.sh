@@ -5,5 +5,5 @@ SRC_FILE+=" bitmap.c"
 SRC_FILE+=" disk_ops.c"
 SRC_FILE+=" userfs_heap.c"
 SRC_FILE+=" userfs_file_ctrl.c"
-SRC_FILE+=" hashlist.c"
+SRC_FILE+=" userfs_dentry_hash.c"
 gcc -O2 ${SRC_FILE} -I../include -lpthread

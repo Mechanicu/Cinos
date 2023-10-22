@@ -1,11 +1,10 @@
 #ifndef USERFS_DENTRY_HASH
 #define USERFS_DENTRY_HASH
 
-#ifndef _HASHLIST_H_
-#define _HASHLIST_H_
-
 #include "atomic.h"
+#include "inode.h"
 #include "list.h"
+#include "vnode.h"
 #include <pthread.h>
 
 #define LINKHASH_MAX_BUCKET_COUNT   128
@@ -24,33 +23,36 @@
 #define HASH_BUCKET_UNLOCK(lock)
 #endif
 
+#define USERFS_INODEADDRINFO_CAL(type, addr) ((((unsigned long)(type) << ((sizeof(unsigned long) << 3) - 1)) | (unsigned long)addr))
+#define USERFS_INODETYPE_GET(val)            ((unsigned long)(val) >> ((sizeof(unsigned long) << 3) - 1))
+#define USERFS_INODEADDR_GET(val)            ((unsigned long)(val) & (UINT64_MAX >> 1))
+
 typedef atomic_t hlist_bucket_lock_t;
 
 typedef struct hash_object {
-    list_t        chain;
-    unsigned long key;
-    void         *val;
+    list_t                     chain;
+    struct userfs_dentry_name  name;
+    userfs_dhtable_inodeaddr_t val;
 } hash_obj_t;
 
 typedef struct hashlist_object {
-    list_t     hlist;
-    hash_obj_t obj;
+    struct hashlist_object *hlist;
+    hash_obj_t              obj;
 } hlist_t;
 
 typedef struct hashlist_bucket {
     atomic_t refcount;
-    list_t   bucket_start;
+    hlist_t *bucket_start;
 #if ENABLE_LINKHASH_BUCKET_LOCK == 1
     hlist_bucket_lock_t bucket_lock;
 #endif
 } hlist_bucket_t;
 
 typedef struct linkhash {
-    unsigned long   bucket_count;
-    atomic_t        obj_count;
-    list_t          hlist_head;
-    hlist_bucket_t *bucket;
-    hlist_bucket_t  _bucket[0];
+    unsigned long  bucket_count;
+    atomic_t       obj_count;
+    list_t         hlist_head;
+    hlist_bucket_t bucket[0];
 } linkhash_t;
 
 static inline unsigned int hash_32bkey(const unsigned int key)
@@ -65,7 +67,7 @@ static inline unsigned int hash_32bkey(const unsigned int key)
     return hash_key;
 }
 
-static inline unsigned int str2hash_u32(const char *name, int len)
+static inline unsigned int str2hash_u32(const char *name, uint32_t len)
 {
     unsigned int         hash;
     unsigned int         hash0 = 0x12a3fe2d;
@@ -84,15 +86,34 @@ static inline unsigned int str2hash_u32(const char *name, int len)
     return hash0 << 1;
 }
 
-#define HASH_KEY_PREPROC(name, len) str2hash_u32(name, len)
-#define HASH_GET_KEY(key)           hash_32bkey(key)
+linkhash_t *userfs_dentry_hash_create(
+    const unsigned long bucket_count);
 
-linkhash_t *linkhash_create(const unsigned long bucket_count);
-void        linkhash_destroy(linkhash_t *hashtable);
-int         linkhash_add(unsigned long key, void *val, linkhash_t *table);
-long        linkhash_get(unsigned long key, linkhash_t *hashtable);
-long        linkhash_remove(unsigned long key, linkhash_t *hashtable);
+void userfs_dentry_hash_destroy(
+    linkhash_t *hashtable);
 
-#endif
+hash_obj_t *userfs_dentry_hash_insert(
+    const char    *name,
+    const uint32_t name_len,
+    const uint8_t  inodeaddr_type,
+    unsigned long  inodeaddr,
+    linkhash_t    *table);
+
+hash_obj_t *userfs_dentry_hash_update(
+    const char    *name,
+    const uint32_t name_len,
+    const uint8_t  inodeaddr_type,
+    unsigned long  inodeaddr,
+    linkhash_t    *table);
+
+userfs_dhtable_inodeaddr_t userfs_dentry_hash_get(
+    const char    *name,
+    const uint32_t name_len,
+    linkhash_t    *hashtable);
+
+userfs_dhtable_inodeaddr_t userfs_dentry_hash_remove(
+    const char    *name,
+    const uint32_t name_len,
+    linkhash_t    *hashtable);
 
 #endif
