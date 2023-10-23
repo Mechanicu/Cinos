@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define USERFS_BITMAP_LOG_LEVEL        INF
+
 #define BITMAP_SET_POS(bitmap, val)    (bitmap[pos >> 3] |= (val << (pos & 7)))
 #define BITMAP_POS_ISNULL(bitmap, pos) (bitmap[pos >> 3] & (1 << (pos & 7)))
 #define BITMAP_MAX_BYTES               256
@@ -46,18 +48,21 @@ static inline int bitmap_set_val(bitmap_t *bitmap, const unsigned int pos, const
         return -1;
     }
     if (pos > (bitmap->bytes << 3)) {
-        LOG_DEBUG("Bitmap position %u is out of range, max range:%u.", pos, bitmap->bytes << 3);
+        LOG_DESC(USERFS_BITMAP_LOG_LEVEL, "BITMAP SET VAL", "Bitmap position %u is out of range, max range:%u.",
+                 pos, bitmap->bytes << 3);
         return -1;
     }
     bitmap->bitmap[pos >> 3] |= (val << (pos & 7));
-    LOG_DEBUG("set_val: bitmap_t at:%u set to:%u, res:%hhx", pos, val, bitmap->bitmap[pos >> 3]);
+    LOG_DESC(USERFS_BITMAP_LOG_LEVEL, "BITMAP SET VAL", "set_val: bitmap_t at:%u set to:%u, res:%hhx",
+             pos, val, bitmap->bitmap[pos >> 3]);
     return 0;
 }
 
 int bitmap_clear(bitmap_t *bitmap, const unsigned int pos)
 {
     if (!(bitmap->bitmap[pos >> 3] |= (0 << (pos & 7)))) {
-        LOG_DEBUG("bitmap:%p at pos:%u already clean", bitmap, pos);
+        LOG_DESC(ERR, "BITMAP CLEAR", "bitmap:%p at pos:%u already clean",
+                 bitmap, pos);
         return -1;
     }
     atomic_sub(&(bitmap->used_bits_count), 1);
@@ -70,7 +75,8 @@ int bitmap_clear(bitmap_t *bitmap, const unsigned int pos)
 int bitmap_set(bitmap_t *bitmap, const unsigned int pos)
 {
     if (!(bitmap->bitmap[pos >> 3] |= (1 << (pos & 7)))) {
-        LOG_DEBUG("bitmap:%p at pos:%u already set", bitmap, pos);
+        LOG_DESC(ERR, "BITMAP SET", "bitmap:%p at pos:%u already set",
+                 bitmap, pos);
         return -1;
     }
     atomic_add(&(bitmap->used_bits_count), 1);
@@ -84,14 +90,16 @@ int bitmap_get_first_free(bitmap_t *bitmap)
     }
     int first_pos = atomic_get(&(bitmap->first_free_pos));
     if (first_pos == bitmap->bytes << 3) {
-        LOG_ERROR("bitmap full");
+        LOG_DESC(ERR, "BITMAP GET FIRST FREE", "bitmap full");
         return -1;
     }
 
     bitmap_set(bitmap, first_pos);
     int pos = (first_pos + 1) % (bitmap->bytes << 3);
-    for (; pos < bitmap->bytes << 3, BITMAP_POS_ISNULL(bitmap->bitmap, pos); pos++);
-    LOG_DEBUG("bitmap_get_first_free:%d, current_first:%d", first_pos, pos);
+    for (; pos < bitmap->bytes << 3, BITMAP_POS_ISNULL(bitmap->bitmap, pos); pos++)
+        ;
+    LOG_DESC(USERFS_BITMAP_LOG_LEVEL, "BITMAP GET FIRST FREE", "bitmap_get_first_free:%d, current_first:%d",
+             first_pos, pos);
     atomic_set(&(bitmap->first_free_pos), pos);
     return first_pos;
 }

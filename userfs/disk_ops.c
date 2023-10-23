@@ -22,7 +22,7 @@ int userfs_disk_open(const char *pathname)
     if (g_disk_fd < 0) {
         return g_disk_fd;
     }
-    return 0;
+    return -1;
 }
 
 int user_disk_close(void)

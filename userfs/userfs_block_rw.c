@@ -105,11 +105,11 @@ int userfs_dbbuf_list_read(
         uint32_t real_rb;
         if ((real_rb = user_disk_read(buf_list->b_data, expect_rb, roff)) != expect_rb) {
             LOG_DESC(ERR, "MBLOCK BUF READ", "Read failed, mblock id:%u, roff:0x%lxB, in dblock off:0x%x, expect rbytes:0x%xB, real rbytes:0x%xB",
-                     buf_list->b_blocknr, roff, buf_list->b_block_s_off, expect_rb, real_rb);
+                     buf_list->b_blocknr, roff, expect_rb, buf_list->b_block_s_off, real_rb);
             return -1;
         };
         LOG_DESC(DBG, "MBLOCK BUF READ", "mblock id:%u, roff:0x%lxB, expect rbytes:0x%xB, in dblock off:0x%x, real rbytes:0x%xB",
-                 buf_list->b_blocknr, roff, buf_list->b_block_s_off, expect_rb, real_rb);
+                 buf_list->b_blocknr, roff, expect_rb, buf_list->b_block_s_off, real_rb);
         buf_list = buf_list->b_this_page;
     }
     return 0;

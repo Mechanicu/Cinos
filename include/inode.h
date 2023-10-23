@@ -7,6 +7,7 @@
 #define USERFS_BGROUP_DESC(ptr)  ((userfs_bgroup_desc_t *)(ptr))
 #define USERFS_DENTRY(ptr)       ((userfs_dentry_t *)(ptr))
 #define USERFS_MBLOCK(ptr)       ((userfs_mblock_t *)(ptr))
+#define USERFS_DBLOCK(ptr)       ((userfs_dblock_t *)(ptr))
 
 #define USERFS_INODE_SIZE        128
 #define USERFS_DENTRY_SIZE       32
@@ -79,7 +80,7 @@ struct userfs_block_header {
 
 struct userfs_data_block {
     union {
-        struct userfs_inode inode;
+        struct userfs_inode inode[0];
         uint8_t             fnblock[USERFS_INODE_SIZE];
     };
     uint8_t fhblock[0];

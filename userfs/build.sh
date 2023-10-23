@@ -6,4 +6,5 @@ SRC_FILE+=" disk_ops.c"
 SRC_FILE+=" userfs_heap.c"
 SRC_FILE+=" userfs_file_ctrl.c"
 SRC_FILE+=" userfs_dentry_hash.c"
+SRC_FILE+=" userfs_file_ops.c"
 gcc -O2 ${SRC_FILE} -I../include -lpthread

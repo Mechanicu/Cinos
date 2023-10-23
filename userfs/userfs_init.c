@@ -265,8 +265,9 @@ userfs_bbuf_t *userfs_bgroup_desc_table_init(
     uint32_t       bgroup_desc_per_mb_count = (sb->s_metablock_size - sizeof(userfs_mblock_t)) / bgroup_desc_size;
     uint32_t       bgroup_desc_count        = (sb->s_data_block_count + blocks_per_group - 1) / blocks_per_group;
     uint32_t       bgroup_desc_mb_count     = (bgroup_desc_count + bgroup_desc_per_mb_count - 1) / bgroup_desc_per_mb_count;
-    LOG_DESC(DBG, "BGROUP DESC TABLE INIT", "bg_desc count:%u, bg_desc size:%uB, bg_desc per mb:%u, mb bg_desc needs:%u",
+    LOG_DESC(DBG, "BGROUP DESC TABLE INIT", "bg_desc count:%u, dblocks per bg_desc:%u, bg_desc size:%uB, bg_desc per mb:%u, mb bg_desc needs:%u",
              bgroup_desc_count,
+             blocks_per_group,
              bgroup_desc_size,
              bgroup_desc_per_mb_count,
              bgroup_desc_mb_count);
@@ -473,7 +474,8 @@ linkhash_t *userfs_mount_dentry_hashtable_init(
     const uint32_t hash_bucket_count,
     userfs_bbuf_t *dentry_table_bbuf)
 {
-    linkhash_t *dentry_hashtable = linkhash_create(hash_bucket_count);
+    /**/
+    linkhash_t *dentry_hashtable = userfs_dentry_hash_create(hash_bucket_count);
     if (!dentry_hashtable) {
         LOG_DESC(ERR, "USERFS DENTRY HASHTABLE INIT", "Create dentry hashtable failed");
         return NULL;
@@ -486,15 +488,14 @@ linkhash_t *userfs_mount_dentry_hashtable_init(
     /*insert every dentry into dentry hash table*/
     for (uint32_t i = 0; i < userd_rootdentry_count; i++) {
         userfs_dentry_t *cur_dentry = &(dentry_table->dentry[i + dentry_table->h.dfd_first_dentry]);
-        LOG_DESC(DBG, "USERFS DENTRY HASHTABLE INIT", "Insert dentry:%u, dentry name:%s, first dblock:%u",
-                 i, cur_dentry->d_name.name, cur_dentry->d_first_dblock);
-        uint32_t      key = HASH_KEY_PREPROC(cur_dentry->d_name.name, USERFS_MAX_FILE_NAME_LEN);
-        unsigned long val = cur_dentry->d_first_dblock;
-        if (linkhash_add(key, (void *)val, dentry_hashtable) < 0) {
+        if (!userfs_dentry_hash_insert(cur_dentry->d_name.name, strlen(cur_dentry->d_name.name),
+                                       USERFS_NAME2INODE, cur_dentry->d_first_dblock, dentry_hashtable)) {
             LOG_DESC(ERR, "USERFS DENTRY HASHTABLE INIT", "Insert dentry:%u failed", i + dentry_table->h.dfd_first_dentry);
-            linkhash_destroy(dentry_hashtable);
+            userfs_dentry_hash_destroy(dentry_hashtable);
             return NULL;
         }
+        LOG_DESC(DBG, "USERFS DENTRY HASHTABLE INIT", "Insert dentry:%u, dentry name:%s, first dblock:%u",
+                 i, cur_dentry->d_name.name, cur_dentry->d_first_dblock);
     }
     return dentry_hashtable;
 }

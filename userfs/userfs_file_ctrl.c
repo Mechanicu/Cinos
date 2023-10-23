@@ -6,7 +6,7 @@
 #include "userfs_heap.h"
 #include "vnode.h"
 #include <string.h>
-#include <time.h>
+#include <sys/time.h>
 
 #define USERFS_DEFAULT_MAX_DBBUF_FREE_LIST_LEN 256
 
@@ -130,6 +130,7 @@ userfs_bbuf_t *userfs_get_new_dblock(
 
     uint32_t dblock_nr    = cur_lightest_load_bgd_idx->bgi_bgroup_nr * sb->s_data_block_per_group;
     db_buf->b_block_s_off = 0;
+    db_buf->b_list_len    = 1;
     db_buf->b_blocknr     = dblock_nr + bg_dblock_nr;
     db_buf->b_type        = USERFS_BTYPE_DATA;
     LOG_DESC(DBG, "USERFS GET NEW DBLOCK", "bgroup nr:%u, block in bgroup nr:%u, block nr:%u, db buf size:0x%xB, total free dblock:%u",
@@ -151,6 +152,7 @@ userfs_bbuf_t *userfs_get_used_dblock(
         return NULL;
     };
 
+    db_buf->b_list_len    = 1;
     db_buf->b_blocknr     = target_dblock_id;
     db_buf->b_block_s_off = dblock_off;
     db_buf->b_size        = dblock_shard_size;
@@ -176,6 +178,61 @@ static inline void userfs_dentry_exchange(
     memcpy(second, &tmp, sizeof(userfs_dentry_t));
 }
 
+userfs_bbuf_t *userfs_get_new_inode(
+    userfs_super_block_t    *sb,
+    userfs_bgd_index_list_t *bgd_idx_list,
+    uint32_t                 dblock_shard_size,
+    struct timeval          *file_create_tp)
+{
+    /*get new data block as first data block for new file, which contain inode*/
+    userfs_bbuf_t *inode_bbuf = userfs_get_new_dblock(sb, bgd_idx_list, dblock_shard_size);
+    if (inode_bbuf == NULL) {
+        LOG_DESC(ERR, "USERFS INODE ALLOC", "Failed to allocate inode block buf");
+        return NULL;
+    }
+    memset(inode_bbuf->b_data, 0, USERFS_INODE_SIZE);
+    userfs_inode_t *inode     = (userfs_inode_t *)(inode_bbuf->b_data);
+    /*init inode*/
+    inode->i_ctime            = file_create_tp->tv_sec;
+    inode->i_atime            = file_create_tp->tv_sec;
+    inode->i_mtime            = file_create_tp->tv_sec;
+    inode->i_dtime            = 0;
+    inode->i_size             = 0;
+    inode->i_blocks           = 1;
+    inode->i_v2pnode_table[0] = inode_bbuf->b_blocknr;
+    LOG_DESC(DBG, "USERFS INODE ALLOC", "File create time:0x%lx, file size:0x%x, file blocks:%u, first block:%u",
+             inode->i_ctime, inode->i_size, inode->i_blocks, inode->i_v2pnode_table[0]);
+
+    return inode_bbuf;
+}
+
+userfs_bbuf_t *userfs_get_used_inode(
+    userfs_super_block_t *sb,
+    uint32_t              inode_dblock_nr,
+    uint32_t              dblock_shard_size,
+    struct timeval       *file_create_tp)
+{
+    /*get new data block as first data block for new file, which contain inode*/
+    userfs_bbuf_t *inode_bbuf = userfs_get_used_dblock(sb, inode_dblock_nr, 0, dblock_shard_size);
+    if (inode_bbuf == NULL) {
+        LOG_DESC(ERR, "USERFS GET INODE", "Failed to allocate inode block buf");
+        return NULL;
+    }
+    userfs_inode_t *inode = (userfs_inode_t *)(inode_bbuf->b_data);
+    /*init inode*/
+    inode->i_atime        = file_create_tp->tv_sec;
+    LOG_DESC(DBG, "USERFS INODE ALLOC", "File create time:0x%lx, file size:0x%x, file blocks:%u, first block:%u",
+             inode->i_ctime, inode->i_size, inode->i_blocks, inode->i_v2pnode_table[0]);
+
+    return inode_bbuf;
+}
+
+void userfs_free_used_inode(
+
+)
+{
+}
+
 uint32_t userfs_alloc_dentry(
     userfs_dentry_table_t *dentry_table)
 {
@@ -190,7 +247,7 @@ uint32_t userfs_alloc_dentry(
     return new_dentry_pos;
 }
 
-int userfs_free_dentry(
+void userfs_free_dentry(
     userfs_dentry_table_t *dentry_table,
     uint32_t               dentry_pos)
 {
@@ -198,47 +255,20 @@ int userfs_free_dentry(
     if (dentry_pos < dt_h->dfd_first_dentry && dentry_pos >= dt_h->dfd_first_free_dentry) {
         LOG_DESC(ERR, "USERFS DENTRY FREE", "Dentry pos:%u isn't allocated, first used:%u, first free:%u",
                  dentry_pos, dt_h->dfd_first_dentry, dt_h->dfd_first_free_dentry);
-        return -1;
+        return;
     }
     if (dentry_pos != dt_h->dfd_first_dentry) {
         userfs_dentry_exchange(&(dentry_table->dentry[dentry_pos]), &(dentry_table->dentry[dt_h->dfd_first_dentry]));
     }
     dt_h->dfd_first_dentry = (dt_h->dfd_first_dentry + 1) % dt_h->dfd_dentry_count;
     dt_h->dfd_used_dentry_count--;
-    return 0;
 }
 
-userfs_bbuf_t *userfs_alloc_inode(
-    userfs_super_block_t    *sb,
-    userfs_bgd_index_list_t *bgd_idx_list,
-    uint32_t                 dblock_shard_size)
+userfs_dhtable_inodeaddr_t userfs_name2inode(
+    linkhash_t    *dentry_hashtable,
+    const char    *name,
+    const uint32_t name_len)
 {
-    /*init inode*/
-    struct timespec inode_tp = {0};
-    if (clock_gettime(CLOCK_REALTIME, &inode_tp) < 0) {
-        LOG_DESC(ERR, "USERFS INODE ALLOC", "Failed to get current time");
-        return NULL;
-    }
-    /*get new data block as first data block for new file, which contain inode*/
-    userfs_bbuf_t  *inode_bbuf = userfs_get_new_dblock(sb, bgd_idx_list, dblock_shard_size);
-    userfs_inode_t *inode      = (userfs_inode_t *)(inode_bbuf->b_data);
-    if (inode_bbuf == NULL) {
-        LOG_DESC(ERR, "USERFS INODE ALLOC", "Failed to allocate inode block");
-        return NULL;
-    }
-
-    inode->i_ctime  = inode_tp.tv_sec;
-    inode->i_atime  = inode_tp.tv_sec;
-    inode->i_mtime  = inode_tp.tv_sec;
-    inode->i_dtime  = 0;
-    inode->i_size   = sb->s_data_block_size;
-    inode->i_blocks = 1;
-
-    return inode_bbuf;
-}
-
-uint32_t userfs_name2inode(
-
-)
-{
+    /*translate name to inode or block buffer by dentry hash table*/
+    return userfs_dentry_hash_get(name, name_len, dentry_hashtable);
 }
