@@ -16,4 +16,10 @@ userfs_bbuf_t *userfs_file_create(
     userfs_bbuf_t           *dentry_bbuf,
     userfs_bgd_index_list_t *bgd_idx_list);
 
+userfs_bbuf_t *userfs_file_open(
+    const char           *name,
+    const uint32_t        name_len,
+    const uint32_t        dblock_shard_size,
+    userfs_super_block_t *sb,
+    linkhash_t           *dentry_hashtable);
 #endif

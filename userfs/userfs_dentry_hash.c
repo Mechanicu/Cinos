@@ -165,7 +165,7 @@ userfs_dhtable_inodeaddr_t userfs_dentry_hash_get(
     const uint32_t name_len,
     linkhash_t    *hashtable)
 {
-    userfs_dhtable_inodeaddr_t inodeaddr = 0;
+    userfs_dhtable_inodeaddr_t inodeaddr = UINT32_MAX;
     if (!hashtable) {
         return inodeaddr;
     }
@@ -189,7 +189,7 @@ userfs_dhtable_inodeaddr_t userfs_dentry_hash_remove(
     const uint32_t name_len,
     linkhash_t    *hashtable)
 {
-    userfs_dhtable_inodeaddr_t inodeaddr = 0;
+    userfs_dhtable_inodeaddr_t inodeaddr = UINT32_MAX;
     if (!hashtable) {
         return inodeaddr;
     }

@@ -10,7 +10,9 @@
 #include <stdint.h>
 #include <string.h>
 
+#define FILE_CREATE       1
 #define INODE_WRITE_CHECK 0
+#define USERFS_CREATE     1
 
 /**/
 userfs_super_block_t *userfs_suber_block_alloc(
@@ -65,6 +67,7 @@ int main(int argc, char **argv)
 {
     /*filesystem create*/
     userfs_disk_open("./userfs_disk");
+#if USERFS_CREATE == 1
     uint32_t       real_block_size;
     userfs_bbuf_t *sb_bbuf;
 
@@ -110,25 +113,13 @@ int main(int argc, char **argv)
     }
     userfs_mbbuf_list_flush(g_sb->s_first_metablock, g_sb->s_metablock_size, sb_bbuf, sb_bbuf->b_list_len);
     userfs_mbbuf_list_flush(g_sb->s_first_metablock, g_sb->s_metablock_size, dentry_table_bbuf, dentry_table_bbuf->b_list_len);
-#ifdef USERFS_MBLOCK_READ_CHECK
-    userfs_bbuf_t *check_read;
-    uint32_t       real_list_len = userfs_get_used_metadata_blocklist(g_sb, md_id, bgdesc_table_list->b_list_len + 1, &check_read);
-    for (int i = 0; i < real_list_len; i++) {
-        LOG_DESC(DBG, "check mblock for bgroup", "mblock id:%u, mblock type:%hhu, prev:%u, next:%u, list len:%u",
-                 check_read->b_blocknr,
-                 USERFS_MBLOCK(check_read->b_data)->block_type,
-                 USERFS_MBLOCK(check_read->b_data)->h.prev,
-                 USERFS_MBLOCK(check_read->b_data)->h.next,
-                 check_read->b_list_len);
-        check_read = check_read->b_this_page;
-    }
 #endif
 
     /*start mount*/
     userfs_bbuf_t *mount_bg_desc_table = NULL;
     userfs_bbuf_t *mount_dentry_table  = NULL;
     userfs_bbuf_t *mount_sb_buf =
-        userfs_mount_init(g_sb->s_metablock_size, g_sb->s_first_metablock, &mount_bg_desc_table, &mount_dentry_table);
+        userfs_mount_init(UFS_METABLOCK_SIZE, 0, &mount_bg_desc_table, &mount_dentry_table);
     userfs_super_block_t *mount_sb = USERFS_MBLOCK(mount_sb_buf->b_data)->sb;
     LOG_DESC(DBG, "Main", "dblock count:%u, dblock size:0x%xB, mblock size:0x%xB, mblock count:%u, f_mblock count:%u, first mblock:%u, mblock bitmap len:%u",
              mount_sb->s_data_block_count,
@@ -139,6 +130,7 @@ int main(int argc, char **argv)
              mount_sb->s_first_metablock,
              mount_sb->s_metadata_block_bitmap.bytes);
 
+    userfs_dentry_table_t      *dentry_table       = USERFS_MBLOCK(mount_dentry_table->b_data)->dentry_table;
     userfs_bgd_index_list_ops_t mount_bgi_list_ops = {0};
     userfs_bgd_index_list_t    *mount_bgd_idx_list =
         userfs_mount_bgdindex_list_init(mount_bg_desc_table, mount_sb, &mount_bgi_list_ops);
@@ -163,15 +155,21 @@ int main(int argc, char **argv)
     userfs_bbuf_t *inodebbuf[TEST_FILE_COUNT];
     char           filename[TEST_FILE_COUNT];
     uint32_t       filecount = 32;
+#if FILE_CREATE == 1
     for (int i = 0; i < filecount; i++) {
         snprintf(filename, 26, "testfile.<1234 %d>.txt", i);
         inodebbuf[i] =
             userfs_file_create(filename, strlen(filename), USERFS_DEFAULT_DATA_BLOCK_SHARD_SIZE,
-                               mount_sb, dentry_hashtable, dentry_table_bbuf, mount_bgd_idx_list);
+                               mount_sb, dentry_hashtable, mount_dentry_table, mount_bgd_idx_list);
+        userfs_file_open(filename, strlen(filename), USERFS_DEFAULT_DATA_BLOCK_SHARD_SIZE, mount_sb, dentry_hashtable);
         if (inodebbuf[i] != NULL) {
             int res = userfs_dbbuf_list_flush(mount_sb->s_first_datablock, mount_sb->s_data_block_size, inodebbuf[i], inodebbuf[i]->b_list_len);
         }
     }
+    userfs_mbbuf_list_flush(mount_sb->s_first_metablock, mount_sb->s_metablock_size, mount_sb_buf, mount_sb_buf->b_list_len);
+    userfs_mbbuf_list_flush(mount_sb->s_first_metablock, mount_sb->s_metablock_size, mount_bg_desc_table, mount_bg_desc_table->b_list_len);
+    userfs_mbbuf_list_flush(mount_sb->s_first_metablock, mount_sb->s_metablock_size, mount_dentry_table, mount_dentry_table->b_list_len);
+#endif
 
 #if INODE_WRITE_CHECK == 1
     for (int i = 0; i < filecount; i++) {
@@ -185,12 +183,13 @@ int main(int argc, char **argv)
                  cur_inode->i_blocks);
     }
 
-    userfs_dentry_table_t *dentry_table = USERFS_MBLOCK(dentry_table_bbuf->b_data)->dentry_table;
-    for (int i = dentry_table->h.dfd_first_dentry;
-         i < dentry_table->h.dfd_used_dentry_count;
-         i = (i + 1) % dentry_table->h.dfd_dentry_count) {
-        LOG_DESC(DBG, "Main", "Dentry name:%s, inode nr:%u",
-                 dentry_table->dentry[i].d_name.name, dentry_table->dentry[i].d_first_dblock);
+    LOG_DESC(DBG, "Main", "Used dentry count:%u, first dentry pos:%u",
+             dentry_table->h.dfd_used_dentry_count, dentry_table->h.dfd_first_dentry)
+    for (int i = dentry_table->h.dfd_first_dentry, count = 0;
+         count < dentry_table->h.dfd_used_dentry_count;
+         i = (i + 1) % dentry_table->h.dfd_dentry_count, count++) {
+        LOG_DESC(DBG, "Main", "Dentry pos:%u, dentry name:%s, inode nr:%u",
+                 i, dentry_table->dentry[i].d_name.name, dentry_table->dentry[i].d_first_dblock);
     }
 #endif
 

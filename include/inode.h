@@ -70,6 +70,7 @@ struct userfs_inode {
     uint32_t i_blocks;
     /**/
     uint32_t i_lastest_bgroup;
+    atomic_t ref_count;
     uint32_t i_v2pnode_table[0];
 };
 

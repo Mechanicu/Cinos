@@ -333,7 +333,11 @@ USERFS_STATIC void userfs_dentry_table_block_init(
 userfs_bbuf_t *userfs_root_dentry_table_init(
     userfs_super_block_t *sb)
 {
-    uint32_t dentry_per_mb_count = sb->s_metablock_size / sizeof(userfs_dentry_t);
+    /*ISSUE: when dentry alloc reach last two obj of dentry table,
+    read/write dentry table will cause incorrect data, UNKNOWN REASON,
+    MAYBE HAVE TO DO WITH ILLEGAL WRITE? JUST DO NOT USE THEM CAN AVOID
+    ISSUE FOR NOW*/
+    uint32_t dentry_per_mb_count = sb->s_metablock_size / sizeof(userfs_dentry_t) - 2;
     uint32_t prev_block          = sb->s_first_metablock;
     uint32_t next_block          = sb->s_first_metablock;
     LOG_DESC(DBG, "ROOT DENTRY TABLE INIT", "dentry size:0x%xB, max filename len:%u, dentry per mb:%u",
@@ -487,7 +491,8 @@ linkhash_t *userfs_mount_dentry_hashtable_init(
 
     /*insert every dentry into dentry hash table*/
     for (uint32_t i = 0; i < userd_rootdentry_count; i++) {
-        userfs_dentry_t *cur_dentry = &(dentry_table->dentry[i + dentry_table->h.dfd_first_dentry]);
+        uint32_t         cur_dentry_pos = (i + dentry_table->h.dfd_first_dentry) % dentry_table->h.dfd_dentry_count;
+        userfs_dentry_t *cur_dentry     = &(dentry_table->dentry[cur_dentry_pos]);
         if (!userfs_dentry_hash_insert(cur_dentry->d_name.name, strlen(cur_dentry->d_name.name),
                                        USERFS_NAME2INODE, cur_dentry->d_first_dblock, dentry_hashtable)) {
             LOG_DESC(ERR, "USERFS DENTRY HASHTABLE INIT", "Insert dentry:%u failed", i + dentry_table->h.dfd_first_dentry);

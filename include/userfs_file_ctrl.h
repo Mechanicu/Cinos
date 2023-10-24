@@ -8,6 +8,12 @@
 
 #define USERFS_DEFAULT_DATA_BLOCK_SHARD_SIZE (1 << 10 << 10 << 2)
 
+void userfs_free_dbbuf(
+    userfs_bbuf_t *db_buf);
+
+userfs_bbuf_t *userfs_alloc_dbbuf(
+    uint32_t dblock_shardsize);
+
 uint32_t userfs_alloc_dentry(
     userfs_dentry_table_t *dentry_table);
 
@@ -30,7 +36,7 @@ userfs_bbuf_t *userfs_get_new_inode(
     userfs_super_block_t    *sb,
     userfs_bgd_index_list_t *bgd_idx_list,
     uint32_t                 dblock_shard_size,
-    struct timeval         *file_create_tp);
+    struct timeval          *file_create_tp);
 
 userfs_bbuf_t *userfs_get_used_inode(
     userfs_super_block_t *sb,
