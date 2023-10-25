@@ -494,7 +494,7 @@ linkhash_t *userfs_mount_dentry_hashtable_init(
         uint32_t         cur_dentry_pos = (i + dentry_table->h.dfd_first_dentry) % dentry_table->h.dfd_dentry_count;
         userfs_dentry_t *cur_dentry     = &(dentry_table->dentry[cur_dentry_pos]);
         if (!userfs_dentry_hash_insert(cur_dentry->d_name.name, strlen(cur_dentry->d_name.name),
-                                       USERFS_NAME2INODE, cur_dentry->d_first_dblock, dentry_hashtable)) {
+                                       USERFS_NAME2INODE, cur_dentry->d_first_dblock, cur_dentry_pos, dentry_hashtable)) {
             LOG_DESC(ERR, "USERFS DENTRY HASHTABLE INIT", "Insert dentry:%u failed", i + dentry_table->h.dfd_first_dentry);
             userfs_dentry_hash_destroy(dentry_hashtable);
             return NULL;

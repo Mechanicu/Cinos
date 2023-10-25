@@ -11,7 +11,7 @@
 
 #define USERFS_INODE_SIZE        128
 #define USERFS_DENTRY_SIZE       32
-#define USERFS_MAX_FILE_NAME_LEN (USERFS_DENTRY_SIZE - sizeof(uint32_t) - 1)
+#define USERFS_MAX_FILE_NAME_LEN (uint32_t)(USERFS_DENTRY_SIZE - sizeof(uint32_t) - 1)
 
 #define USERFS_BTYPE_FREE        (0x12345678u)
 #define USERFS_BTYPE_SUPER       (83u)
@@ -61,17 +61,17 @@ struct userfs_super_block {
 
 struct userfs_inode {
     /*timestamp*/
-    time_t   i_atime;
-    time_t   i_ctime;
-    time_t   i_mtime;
-    time_t   i_dtime;
+    time_t        i_atime;
+    time_t        i_ctime;
+    time_t        i_mtime;
+    time_t        i_dtime;
     /**/
-    uint32_t i_size;
-    uint32_t i_blocks;
+    uint32_t      i_size;
+    uint32_t      i_blocks;
     /**/
-    uint32_t i_lastest_bgroup;
-    atomic_t ref_count;
-    uint32_t i_v2pnode_table[0];
+    uint32_t      i_lastest_bgroup;
+    atomic_t      ref_count;
+    unsigned long i_v2pnode_table[0];
 };
 
 struct userfs_block_header {

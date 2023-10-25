@@ -32,6 +32,7 @@ typedef atomic_t hlist_bucket_lock_t;
 typedef struct hash_object {
     list_t                     chain;
     struct userfs_dentry_name  name;
+    uint32_t                   dentry_pos;
     userfs_dhtable_inodeaddr_t val;
 } hash_obj_t;
 
@@ -97,6 +98,7 @@ hash_obj_t *userfs_dentry_hash_insert(
     const uint32_t name_len,
     const uint8_t  inodeaddr_type,
     unsigned long  inodeaddr,
+    const uint32_t dentry_pos,
     linkhash_t    *table);
 
 hash_obj_t *userfs_dentry_hash_update(
@@ -109,11 +111,13 @@ hash_obj_t *userfs_dentry_hash_update(
 userfs_dhtable_inodeaddr_t userfs_dentry_hash_get(
     const char    *name,
     const uint32_t name_len,
+    uint32_t      *dentry_pos,
     linkhash_t    *hashtable);
 
 userfs_dhtable_inodeaddr_t userfs_dentry_hash_remove(
     const char    *name,
     const uint32_t name_len,
+    uint32_t      *dentry_pos,
     linkhash_t    *hashtable);
 
 #endif

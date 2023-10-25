@@ -49,6 +49,7 @@ void userfs_free_used_inode();
 userfs_dhtable_inodeaddr_t userfs_name2inode(
     linkhash_t    *dentry_hashtable,
     const char    *name,
+    uint32_t      *dentry_pos,
     const uint32_t name_len);
 
 userfs_bbuf_t *userfs_free_used_dblock();

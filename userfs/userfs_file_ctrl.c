@@ -31,16 +31,18 @@ userfs_bbuf_t *userfs_alloc_dbbuf(
         db_buf->b_size = dblock_shardsize;
         return db_buf;
     }
+
     /*if no avaliable dbbuf, then alloc one*/
     db_buf = USERFS_MEM_ALLOC(sizeof(userfs_bbuf_t));
     if (!db_buf) {
-        LOG_DESC(ERR, "ALLOC MBLOCK BUF", "Alloc metadata block failed");
+        LOG_DESC(ERR, "ALLOC DBLOCK BUF", "Alloc metadata block failed");
         return NULL;
     }
     memset(db_buf, 0, sizeof(userfs_bbuf_t));
+
     db_buf->b_data = USERFS_MEM_ALLOC(dblock_shardsize);
     if (!(db_buf->b_data)) {
-        LOG_DESC(ERR, "ALLOC MBLOCK BUF", "Alloc metadata block data page failed");
+        LOG_DESC(ERR, "ALLOC DBLOCK BUF", "Alloc metadata block data page failed");
         USERFS_MEM_FREE(db_buf);
         return NULL;
     }
@@ -54,7 +56,7 @@ void userfs_free_dbbuf(
     /**/
     int free_dbbuf_count = atomic_get(&free_dbbuf_list_len);
     if (free_dbbuf_count > USERFS_DEFAULT_MAX_DBBUF_FREE_LIST_LEN) {
-        LOG_DESC(DBG, "FREE MBLOCK BUF", "Free mblock list already full, len:%u", free_dbbuf_count);
+        LOG_DESC(DBG, "FREE DBLOCK BUF", "Free dblock list already full, len:%u", free_dbbuf_count);
         USERFS_MEM_FREE(db_buf->b_data);
         USERFS_MEM_FREE(db_buf);
         return;
@@ -65,7 +67,7 @@ void userfs_free_dbbuf(
     db_buf->b_this_page = free_dbbuf_list;
     free_dbbuf_list     = db_buf->b_this_page;
     pthread_spin_unlock(&dbbuf_lock);
-    LOG_DESC(DBG, "FREE dbbuf", "Current free dbbuf list len:%d", free_dbbuf_count + 1);
+    LOG_DESC(DBG, "FREE DBLOCK BUF", "Current free dbbuf list len:%d", free_dbbuf_count + 1);
     return;
 }
 
@@ -162,6 +164,7 @@ userfs_bbuf_t *userfs_get_used_dblock(
         LOG_DESC(ERR, "USERFS GET USED DBLOCK", "Read dblock failed");
         return NULL;
     }
+    return db_buf;
 }
 
 userfs_bbuf_t *userfs_free_used_dblock()
@@ -200,7 +203,7 @@ userfs_bbuf_t *userfs_get_new_inode(
     inode->i_size             = 0;
     inode->i_blocks           = 1;
     inode->i_v2pnode_table[0] = inode_bbuf->b_blocknr;
-    LOG_DESC(DBG, "USERFS INODE ALLOC", "File create time:0x%lx, file size:0x%x, file blocks:%u, first block:%u",
+    LOG_DESC(DBG, "USERFS INODE ALLOC", "File create time:0x%lx, file size:0x%x, file blocks:%u, first block:%lu",
              inode->i_ctime, inode->i_size, inode->i_blocks, inode->i_v2pnode_table[0]);
 
     return inode_bbuf;
@@ -221,7 +224,7 @@ userfs_bbuf_t *userfs_get_used_inode(
     userfs_inode_t *inode = (userfs_inode_t *)(inode_bbuf->b_data);
     /*init inode*/
     inode->i_atime        = file_create_tp->tv_sec;
-    LOG_DESC(DBG, "USERFS INODE ALLOC", "File create time:0x%lx, file size:0x%x, file blocks:%u, first block:%u",
+    LOG_DESC(DBG, "USERFS INODE ALLOC", "File create time:0x%lx, file size:0x%x, file blocks:%u, first block:%lu",
              inode->i_ctime, inode->i_size, inode->i_blocks, inode->i_v2pnode_table[0]);
 
     return inode_bbuf;
@@ -267,8 +270,9 @@ void userfs_free_dentry(
 userfs_dhtable_inodeaddr_t userfs_name2inode(
     linkhash_t    *dentry_hashtable,
     const char    *name,
+    uint32_t      *dentry_pos,
     const uint32_t name_len)
 {
     /*translate name to inode or block buffer by dentry hash table*/
-    return userfs_dentry_hash_get(name, name_len, dentry_hashtable);
+    return userfs_dentry_hash_get(name, name_len, dentry_pos, dentry_hashtable);
 }

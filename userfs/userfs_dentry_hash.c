@@ -89,6 +89,7 @@ hash_obj_t *userfs_dentry_hash_insert(
     const uint32_t name_len,
     const uint8_t  inodeaddr_type,
     unsigned long  inodeaddr,
+    const uint32_t dentry_pos,
     linkhash_t    *table)
 {
     unsigned int hash      = str2hash_u32(name, name_len);
@@ -108,6 +109,7 @@ hash_obj_t *userfs_dentry_hash_insert(
     memcpy(&(new->obj.val), &val, sizeof(unsigned long));
     memcpy(new->obj.name.name, name, name_len);
     new->obj.name.name[name_len + 1] = 0;
+    new->obj.dentry_pos              = dentry_pos;
 
     // insert in conflict solved chain
     hlist_t *conflict_list           = bucket->bucket_start;
@@ -163,6 +165,7 @@ hash_obj_t *userfs_dentry_hash_update(
 userfs_dhtable_inodeaddr_t userfs_dentry_hash_get(
     const char    *name,
     const uint32_t name_len,
+    uint32_t      *dentry_pos,
     linkhash_t    *hashtable)
 {
     userfs_dhtable_inodeaddr_t inodeaddr = UINT32_MAX;
@@ -175,8 +178,9 @@ userfs_dhtable_inodeaddr_t userfs_dentry_hash_get(
     hlist_t        *conflict_list = bucket->bucket_start;
     while (conflict_list != NULL) {
         if (!strncmp(conflict_list->obj.name.name, name, name_len)) {
-            LOG_DESC(USERFS_DENTRY_HASH_LOG_LEVEL, "DENRY HASH GET", "Get dentry, dentry name:%s, hash:%u, bucket:%u, itype:%lu, iaddr:0x%lx",
-                     name, hash, bucket_id, USERFS_INODETYPE_GET(conflict_list->obj.val), USERFS_INODEADDR_GET(conflict_list->obj.val));
+            *dentry_pos = conflict_list->obj.dentry_pos;
+            LOG_DESC(USERFS_DENTRY_HASH_LOG_LEVEL, "DENRY HASH GET", "Get dentry, dentry name:%s, dentry pos:%u, hash:%u, bucket:%u, itype:%lu, iaddr:0x%lx",
+                     name, *dentry_pos, hash, bucket_id, USERFS_INODETYPE_GET(conflict_list->obj.val), USERFS_INODEADDR_GET(conflict_list->obj.val));
             return conflict_list->obj.val;
         }
         conflict_list = conflict_list->hlist;
@@ -187,6 +191,7 @@ userfs_dhtable_inodeaddr_t userfs_dentry_hash_get(
 userfs_dhtable_inodeaddr_t userfs_dentry_hash_remove(
     const char    *name,
     const uint32_t name_len,
+    uint32_t      *dentry_pos,
     linkhash_t    *hashtable)
 {
     userfs_dhtable_inodeaddr_t inodeaddr = UINT32_MAX;
@@ -213,8 +218,9 @@ userfs_dhtable_inodeaddr_t userfs_dentry_hash_remove(
                 prev->hlist = cur->hlist;
             }
             memcpy(&inodeaddr, &(cur->obj.val), sizeof(userfs_dhtable_inodeaddr_t));
-            LOG_DESC(USERFS_DENTRY_HASH_LOG_LEVEL, "DENTRY HASH REMOVE", "dentry name:%s, hash:%u, bucket:%u, itype:%lu, iaddr:0x%lx",
-                     cur->obj.name.name, hash, bucket_id, USERFS_INODETYPE_GET(inodeaddr), USERFS_INODEADDR_GET(inodeaddr));
+            *dentry_pos = cur->obj.dentry_pos;
+            LOG_DESC(USERFS_DENTRY_HASH_LOG_LEVEL, "DENTRY HASH REMOVE", "dentry name:%s, dentry_pos:%u, hash:%u, bucket:%u, itype:%lu, iaddr:0x%lx",
+                     cur->obj.name.name, *dentry_pos, hash, bucket_id, USERFS_INODETYPE_GET(inodeaddr), USERFS_INODEADDR_GET(inodeaddr));
             USERFS_DHASH_MEM_FREE(cur);
             return inodeaddr;
         }
@@ -239,14 +245,15 @@ void userfs_dentry_hash_debug_intf(void)
 
     for (int i = 0; i < filecount; i++) {
         snprintf(filename, 26, "testfile.<1234 %d>.txt", i);
-        userfs_dentry_hash_insert(filename, strlen(filename), 1, i, table);
-        userfs_dentry_hash_insert(filename, strlen(filename), 1, i, table);
+        userfs_dentry_hash_insert(filename, strlen(filename), 1, i, i, table);
+        userfs_dentry_hash_insert(filename, strlen(filename), 1, i, i, table);
     }
 
     for (int i = 0; i < filecount; i++) {
         snprintf(filename, 26, "testfile.<1234 %d>.txt", i);
+        uint32_t                   cur_dentry_pos = 0;
         userfs_dhtable_inodeaddr_t tmp =
-            userfs_dentry_hash_get(filename, strlen(filename), table);
+            userfs_dentry_hash_get(filename, strlen(filename), &cur_dentry_pos, table);
     }
 
     for (int i = 0; i < filecount; i++) {

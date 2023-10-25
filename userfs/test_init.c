@@ -161,10 +161,9 @@ int main(int argc, char **argv)
         inodebbuf[i] =
             userfs_file_create(filename, strlen(filename), USERFS_DEFAULT_DATA_BLOCK_SHARD_SIZE,
                                mount_sb, dentry_hashtable, mount_dentry_table, mount_bgd_idx_list);
-        userfs_file_open(filename, strlen(filename), USERFS_DEFAULT_DATA_BLOCK_SHARD_SIZE, mount_sb, dentry_hashtable);
-        if (inodebbuf[i] != NULL) {
-            int res = userfs_dbbuf_list_flush(mount_sb->s_first_datablock, mount_sb->s_data_block_size, inodebbuf[i], inodebbuf[i]->b_list_len);
-        }
+        inodebbuf[i] = userfs_file_open(filename, strlen(filename), USERFS_DEFAULT_DATA_BLOCK_SHARD_SIZE, mount_sb, dentry_hashtable);
+        int res = userfs_file_close(filename, strlen(filename), USERFS_DEFAULT_DATA_BLOCK_SHARD_SIZE, mount_sb, inodebbuf[i], dentry_hashtable);
+        res = userfs_file_close(filename, strlen(filename), USERFS_DEFAULT_DATA_BLOCK_SHARD_SIZE, mount_sb, inodebbuf[i], dentry_hashtable);
     }
     userfs_mbbuf_list_flush(mount_sb->s_first_metablock, mount_sb->s_metablock_size, mount_sb_buf, mount_sb_buf->b_list_len);
     userfs_mbbuf_list_flush(mount_sb->s_first_metablock, mount_sb->s_metablock_size, mount_bg_desc_table, mount_bg_desc_table->b_list_len);
