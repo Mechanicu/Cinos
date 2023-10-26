@@ -60,7 +60,6 @@ userfs_bbuf_t *userfs_file_create(
     /*init inode*/
     userfs_inode_t *new_inode      = USERFS_DBLOCK(new_inode_bbuf->b_data)->inode;
     new_inode->i_ctime             = file_create_tp.tv_sec;
-    new_inode->i_blocks           += 1;
     new_inode->i_v2pnode_table[0]  = new_inode_bbuf->b_blocknr;
     atomic_add(&(new_inode->ref_count), 1);
     LOG_DESC(DBG, "USERFS FILE CREATE", "Create file success, file:%s, first block:%u, dblock buf:%p, create time:0x%lx, refcount:%d",
@@ -104,7 +103,7 @@ userfs_bbuf_t *userfs_file_open(
     if (USERFS_INODETYPE_GET(inodeaddr) == USERFS_NAME2INODE) {
         /*haven't been opened yet, read inode*/
         ff_block = USERFS_INODEADDR_GET(inodeaddr);
-        ff_bbuf  = userfs_get_used_dblock(sb, ff_block, 0, dblock_shard_size);
+        ff_bbuf  = userfs_get_used_inode(sb, ff_block, dblock_shard_size);
         if (!ff_bbuf) {
             LOG_DESC(DBG, "USERFS FILE OPEN", "Read inode failed, inode number:%u", ff_block);
             return NULL;
@@ -121,8 +120,8 @@ userfs_bbuf_t *userfs_file_open(
         }
         open_inode = USERFS_DBLOCK(ff_bbuf->b_data)->inode;
         atomic_add(&(open_inode->ref_count), 1);
-        LOG_DESC(DBG, "USERFS FILE OPEN", "Open file success, file:%s, first block:%u, dblock buf:%p, access time:0x%lx, refcount:%d",
-                 name, ff_bbuf->b_blocknr, ff_bbuf, file_open_tp.tv_sec, atomic_get(&(open_inode->ref_count)));
+        LOG_DESC(DBG, "USERFS FILE OPEN", "Open file success, file:%s, first block:%u, record first block:%lu, dblock buf:%p, access time:0x%lx, refcount:%d",
+                 name, ff_bbuf->b_blocknr, open_inode->i_v2pnode_table[0], ff_bbuf, file_open_tp.tv_sec, atomic_get(&(open_inode->ref_count)));
     } else {
         ff_bbuf    = (userfs_bbuf_t *)USERFS_INODEADDR_GET(inodeaddr);
         ff_block   = ff_bbuf->b_blocknr;
@@ -141,7 +140,6 @@ int userfs_file_close(
     const uint32_t        name_len,
     const uint32_t        dblock_shard_size,
     userfs_super_block_t *sb,
-    userfs_bbuf_t        *inodebbuf,
     linkhash_t           *dentry_hashtable)
 {
     /*file name should less than 27B*/
@@ -218,7 +216,81 @@ int userfs_file_close(
 }
 
 int userfs_file_delete(
-
-)
+    const char            *name,
+    const uint32_t         name_len,
+    userfs_super_block_t  *sb,
+    userfs_dentry_table_t *dentry_table,
+    linkhash_t            *dentry_hashtable)
 {
+    /*file name should less than 27B*/
+    if (name_len > USERFS_MAX_FILE_NAME_LEN) {
+        LOG_DESC(ERR, "USERFS FILE DELETE", "File name too long, name len:%u, max len:%u",
+                 name_len, USERFS_MAX_FILE_NAME_LEN);
+        return -1;
+    }
+
+    /*delete and free dentry, considering dentry free strategy, also need to update dentry pos*/
+    uint32_t                   dentry_pos = 0;
+    userfs_dhtable_inodeaddr_t inodeaddr  = userfs_dentry_hash_remove(name, name_len, &dentry_pos, dentry_hashtable);
+    if (inodeaddr == UINT32_MAX) {
+        LOG_DESC(ERR, "USERFS FILE DELETE", "Cannot find file:%s", name);
+        return -1;
+    }
+    LOG_DESC(DBG, "USERFS FILE DELETE", "Delete dentry from dentry hashtable, file:%s, pos:%u", name, dentry_pos);
+
+    /*free dentry and update dentry pos for moved dentry*/
+    int res = userfs_free_dentry(dentry_table, dentry_pos);
+    if (!res) {
+        userfs_dentry_t *moved_dentry = &(dentry_table->dentry[dentry_pos]);
+        if (!userfs_dentry_hash_update_dentrypos(
+                moved_dentry->d_name.name, strlen(moved_dentry->d_name.name), dentry_pos, dentry_hashtable)) {
+            LOG_DESC(ERR, "USERFS FILE DELETE", "Update dentry pos for moved dentry failed, file:%s, new pos:%u", moved_dentry->d_name.name, dentry_pos);
+            return -1;
+        }
+        LOG_DESC(DBG, "USERFS FILE DELETE", "Update dentry pos for moved dentry, file:%s, new pos:%u", moved_dentry->d_name.name, dentry_pos);
+    }
+
+    /*if file hasn't been opened yet, then dentry hashtable store inode number,
+    otherwise store block buf address.
+    If file isn't opened , then open inode and delete it*/
+    userfs_bbuf_t *inodebbuf = NULL;
+    if (USERFS_INODETYPE_GET(inodeaddr) == USERFS_NAME2INODEBUF) {
+        /*haven't been opened yet, not need to close*/
+        LOG_DESC(DBG, "USERFS FILE DELETE", "File is opened, file:%s, block buf addr:0x%lx",
+                 name, USERFS_INODEADDR_GET(inodeaddr));
+        inodebbuf = (userfs_bbuf_t *)USERFS_INODEADDR_GET(inodeaddr);
+    } else {
+        /*read inode from disk to free data blocks*/
+        uint32_t inode_nr = (uint32_t)USERFS_INODEADDR_GET(inodeaddr);
+        inodebbuf         = userfs_get_used_inode(sb, inode_nr, USERFS_PAGE_SIZE);
+        if (!inodebbuf) {
+            LOG_DESC(DBG, "USERFS FILE DELETE", "Read inode from disk failed, file:%s, inode number:%u",
+                     name, inode_nr);
+            return -1;
+        }
+    }
+
+    /*get current time as file delete time stamp*/
+    struct timeval file_delete_ops = {0};
+    if (gettimeofday(&file_delete_ops, NULL) < 0) {
+        perror("USERFS FILE CLOSE");
+        return -1;
+    }
+
+    /*free data blocks alloc for file*/
+    userfs_inode_t *delete_inode = USERFS_DBLOCK(inodebbuf->b_data)->inode;
+    LOG_DESC(DBG, "USERFS FILE DELETE", "File inode info, inode number:%u, file sizes:%u, blocks count:%u, create time:0x%lx, last access time:0x%lx, delete time:0x%lx",
+             inodebbuf->b_blocknr, delete_inode->i_size, delete_inode->i_blocks, delete_inode->i_ctime, delete_inode->i_atime, file_delete_ops.tv_sec);
+    for (int i = 0; i < delete_inode->i_blocks; i++) {
+        userfs_free_used_dblock();
+    }
+    userfs_bbuf_t *next = inodebbuf;
+    userfs_bbuf_t *prev = NULL;
+    while (next != NULL) {
+        prev = next;
+        next = prev->b_this_page;
+        userfs_free_dbbuf(prev);
+    }
+
+    return 0;
 }

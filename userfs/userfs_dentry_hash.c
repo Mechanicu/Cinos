@@ -155,11 +155,41 @@ hash_obj_t *userfs_dentry_hash_update(
             return NULL;
         }
         // update
-        LOG_DESC(USERFS_DENTRY_HASH_LOG_LEVEL, "DENRY HASH UPDATE", "Update dentry,, dentry name:%s, old itype:%lu, old iaddr:0x%lx, new itype:%lu, new iaddr:0x%lx, hash:%u, bucket:%u",
+        LOG_DESC(USERFS_DENTRY_HASH_LOG_LEVEL, "DENRY HASH UPDATE", "Update dentry, dentry name:%s, old itype:%lu, old iaddr:0x%lx, new itype:%lu, new iaddr:0x%lx, hash:%u, bucket:%u",
                  name, USERFS_INODETYPE_GET(conflict_list->obj.val), USERFS_INODEADDR_GET(conflict_list->obj.val), (unsigned long)inodeaddr_type, inodeaddr, hash, bucket_id)
         conflict_list->obj.val = USERFS_INODEADDRINFO_CAL(inodeaddr_type, inodeaddr);
         return &(conflict_list->obj);
     }
+    return NULL;
+}
+
+hash_obj_t *userfs_dentry_hash_update_dentrypos(
+    const char    *name,
+    const uint32_t name_len,
+    const uint32_t dentry_pos,
+    linkhash_t    *table)
+{
+    unsigned int    hash      = str2hash_u32(name, name_len);
+    unsigned int    bucket_id = hash & (table->bucket_count - 1);
+    hlist_bucket_t *bucket    = &(table->bucket[bucket_id]);
+
+    // insert in conflict solved chain
+    hlist_t *conflict_list    = bucket->bucket_start;
+    if (conflict_list != NULL) {
+        // check if current dentry exists
+        conflict_list = check_if_exists(conflict_list, name, name_len);
+        if (conflict_list == NULL) {
+            LOG_DESC(ERR, "DENRY HASH UPDATE DPOS", "Dentry NOT exist, dentry name:%s, hash:%u, bucket:%u",
+                     name, hash, bucket_id);
+            return NULL;
+        }
+        // update dentry pos
+        LOG_DESC(USERFS_DENTRY_HASH_LOG_LEVEL, "DENRY HASH UPDATE DPOS", "Update dentry pos, dentry name:%s, old dpos:%u, new dpos:%u, hash:%u, bucket:%u",
+                 name, conflict_list->obj.dentry_pos, dentry_pos, hash, bucket_id)
+        conflict_list->obj.dentry_pos = dentry_pos;
+        return &(conflict_list->obj);
+    }
+    return NULL;
 }
 
 userfs_dhtable_inodeaddr_t userfs_dentry_hash_get(

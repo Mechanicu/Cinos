@@ -17,7 +17,7 @@ userfs_bbuf_t *userfs_alloc_dbbuf(
 uint32_t userfs_alloc_dentry(
     userfs_dentry_table_t *dentry_table);
 
-void userfs_free_dentry(
+int userfs_free_dentry(
     userfs_dentry_table_t *dentry_table,
     uint32_t               dentry_pos);
 
@@ -41,8 +41,7 @@ userfs_bbuf_t *userfs_get_new_inode(
 userfs_bbuf_t *userfs_get_used_inode(
     userfs_super_block_t *sb,
     uint32_t              inode_dblock_nr,
-    uint32_t              dblock_shard_size,
-    struct timeval       *file_create_tp);
+    uint32_t              dblock_shard_size);
 
 void userfs_free_used_inode();
 

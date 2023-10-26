@@ -108,6 +108,12 @@ hash_obj_t *userfs_dentry_hash_update(
     unsigned long  inodeaddr,
     linkhash_t    *table);
 
+hash_obj_t *userfs_dentry_hash_update_dentrypos(
+    const char    *name,
+    const uint32_t name_len,
+    const uint32_t dentry_pos,
+    linkhash_t    *table);
+
 userfs_dhtable_inodeaddr_t userfs_dentry_hash_get(
     const char    *name,
     const uint32_t name_len,

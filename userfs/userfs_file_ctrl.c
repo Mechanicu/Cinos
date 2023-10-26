@@ -212,22 +212,10 @@ userfs_bbuf_t *userfs_get_new_inode(
 userfs_bbuf_t *userfs_get_used_inode(
     userfs_super_block_t *sb,
     uint32_t              inode_dblock_nr,
-    uint32_t              dblock_shard_size,
-    struct timeval       *file_create_tp)
+    uint32_t              dblock_shard_size)
 {
     /*get new data block as first data block for new file, which contain inode*/
-    userfs_bbuf_t *inode_bbuf = userfs_get_used_dblock(sb, inode_dblock_nr, 0, dblock_shard_size);
-    if (inode_bbuf == NULL) {
-        LOG_DESC(ERR, "USERFS GET INODE", "Failed to allocate inode block buf");
-        return NULL;
-    }
-    userfs_inode_t *inode = (userfs_inode_t *)(inode_bbuf->b_data);
-    /*init inode*/
-    inode->i_atime        = file_create_tp->tv_sec;
-    LOG_DESC(DBG, "USERFS INODE ALLOC", "File create time:0x%lx, file size:0x%x, file blocks:%u, first block:%lu",
-             inode->i_ctime, inode->i_size, inode->i_blocks, inode->i_v2pnode_table[0]);
-
-    return inode_bbuf;
+    return userfs_get_used_dblock(sb, inode_dblock_nr, 0, dblock_shard_size);
 }
 
 void userfs_free_used_inode(
@@ -250,21 +238,24 @@ uint32_t userfs_alloc_dentry(
     return new_dentry_pos;
 }
 
-void userfs_free_dentry(
+int userfs_free_dentry(
     userfs_dentry_table_t *dentry_table,
     uint32_t               dentry_pos)
 {
+    uint32_t res = -1;
     userfs_dentry_table_header_t *dt_h = &(dentry_table->h);
     if (dentry_pos < dt_h->dfd_first_dentry && dentry_pos >= dt_h->dfd_first_free_dentry) {
         LOG_DESC(ERR, "USERFS DENTRY FREE", "Dentry pos:%u isn't allocated, first used:%u, first free:%u",
                  dentry_pos, dt_h->dfd_first_dentry, dt_h->dfd_first_free_dentry);
-        return;
+        return res;
     }
     if (dentry_pos != dt_h->dfd_first_dentry) {
         userfs_dentry_exchange(&(dentry_table->dentry[dentry_pos]), &(dentry_table->dentry[dt_h->dfd_first_dentry]));
+        res = 0;
     }
     dt_h->dfd_first_dentry = (dt_h->dfd_first_dentry + 1) % dt_h->dfd_dentry_count;
     dt_h->dfd_used_dentry_count--;
+    return res;
 }
 
 userfs_dhtable_inodeaddr_t userfs_name2inode(

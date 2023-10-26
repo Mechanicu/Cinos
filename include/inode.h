@@ -9,6 +9,7 @@
 #define USERFS_MBLOCK(ptr)       ((userfs_mblock_t *)(ptr))
 #define USERFS_DBLOCK(ptr)       ((userfs_dblock_t *)(ptr))
 
+#define USERFS_PAGE_SIZE         (1 << 10 << 2)
 #define USERFS_INODE_SIZE        128
 #define USERFS_DENTRY_SIZE       32
 #define USERFS_MAX_FILE_NAME_LEN (uint32_t)(USERFS_DENTRY_SIZE - sizeof(uint32_t) - 1)
