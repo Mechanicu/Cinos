@@ -83,9 +83,8 @@ struct userfs_block_header {
 struct userfs_data_block {
     union {
         struct userfs_inode inode[0];
-        uint8_t             fnblock[USERFS_INODE_SIZE];
+        uint8_t             data[USERFS_INODE_SIZE];
     };
-    uint8_t fhblock[0];
 };
 
 struct userfs_block_group_descriptor {

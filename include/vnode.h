@@ -38,8 +38,8 @@ struct block_group_descriptors_index_list_ops {
         uint32_t                                   bgi_bgroup_nr);
 };
 
-#define USERFS_NAME2INODE    1
-#define USERFS_NAME2INODEBUF 0
+#define USERFS_NAME2INODE    0
+#define USERFS_NAME2INODEBUF 1
 
 typedef struct block_group_descriptors_index_list     userfs_bgd_index_list_t;
 typedef struct block_group_descriptors_index_list_ops userfs_bgd_index_list_ops_t;

@@ -10,9 +10,10 @@
 #include <stdint.h>
 #include <string.h>
 
-#define FILE_CREATE       1
 #define INODE_WRITE_CHECK 0
-#define USERFS_CREATE     0
+#define USERFS_CREATE     1
+#define FILE_CREATE       0
+#define FILE_WRITE        1
 
 /**/
 userfs_super_block_t *userfs_suber_block_alloc(
@@ -171,7 +172,21 @@ int main(int argc, char **argv)
     userfs_mbbuf_list_flush(mount_sb->s_first_metablock, mount_sb->s_metablock_size, mount_bg_desc_table, mount_bg_desc_table->b_list_len);
     userfs_mbbuf_list_flush(mount_sb->s_first_metablock, mount_sb->s_metablock_size, mount_dentry_table, mount_dentry_table->b_list_len);
 #endif
+#if FILE_WRITE == 1
+    uint32_t wtimes      = 8;
+    char     write_buf[] = "hello world";
+    uint32_t wlen        = strlen(write_buf);
+    uint32_t woff        = 0;
 
+    snprintf(filename, 26, "write_file_test.txt");
+    userfs_bbuf_t *write_inodebbuf = userfs_file_create(filename, strlen(filename), USERFS_DEFAULT_DATA_BLOCK_SHARD_SIZE,
+                                                        mount_sb, dentry_hashtable, mount_dentry_table, mount_bgd_idx_list);
+    for (int i = 0; i < wtimes; i++) {
+        userfs_file_write(write_buf, woff, wlen, USERFS_DEFAULT_DATA_BLOCK_SHARD_SIZE,
+                          write_inodebbuf, mount_sb, mount_bgd_idx_list);
+        woff += wlen;
+    }
+#endif
     user_disk_close();
     return 0;
 }

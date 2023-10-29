@@ -450,8 +450,8 @@ userfs_bgd_index_list_t *userfs_mount_bgdindex_list_init(
         bg_index_list->bgi_blocknr2bbuf[bgroup_mb++] = cur_bg_desc_bbuf;
         uint32_t cur_mb_bgd_count =
             bgroup_idx_count > sb->s_bgroup_desc_per_mb_count ? sb->s_bgroup_desc_per_mb_count : bgroup_idx_count;
+        userfs_bgroup_desc_t *cur_bg_desc_table = USERFS_MBLOCK(cur_bg_desc_bbuf->b_data)->bg_desc_table;
         for (int i = 0; i < cur_mb_bgd_count; i++) {
-            userfs_bgroup_desc_t *cur_bg_desc_table = USERFS_MBLOCK(cur_bg_desc_bbuf->b_data)->bg_desc_table;
             if (userfs_mrheap_insert(bg_index_list->bgi_maxroot_heap, bgroup_id, cur_bg_desc_table->bg_free_block_count, NULL) == NULL) {
                 LOG_DESC(ERR, "USERFS BGROUP DESC INDEX LIST INIT", "Bgroup index heap insert failed, block id:%u, f_block_count:%u",
                          bgroup_id, cur_bg_desc_table->bg_free_block_count);
