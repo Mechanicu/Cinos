@@ -32,6 +32,14 @@ uint32_t userfs_file_write(
     userfs_super_block_t    *sb,
     userfs_bgd_index_list_t *bgd_idx_list);
 
+uint32_t userfs_file_read(
+    char                 *buf,
+    const uint32_t        roff,
+    const uint32_t        size,
+    const uint32_t        dblock_shard_size,
+    userfs_bbuf_t        *inodebbuf,
+    userfs_super_block_t *sb);
+
 int userfs_file_close(
     const char           *name,
     const uint32_t        name_len,

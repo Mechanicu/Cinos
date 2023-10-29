@@ -173,18 +173,29 @@ int main(int argc, char **argv)
     userfs_mbbuf_list_flush(mount_sb->s_first_metablock, mount_sb->s_metablock_size, mount_dentry_table, mount_dentry_table->b_list_len);
 #endif
 #if FILE_WRITE == 1
-    uint32_t wtimes      = 8;
-    char     write_buf[] = "hello world";
-    uint32_t wlen        = strlen(write_buf);
-    uint32_t woff        = 0;
-
+    uint32_t wtimes = 8;
+    uint32_t woff   = 0;
     snprintf(filename, 26, "write_file_test.txt");
     userfs_bbuf_t *write_inodebbuf = userfs_file_create(filename, strlen(filename), USERFS_DEFAULT_DATA_BLOCK_SHARD_SIZE,
                                                         mount_sb, dentry_hashtable, mount_dentry_table, mount_bgd_idx_list);
+
     for (int i = 0; i < wtimes; i++) {
-        userfs_file_write(write_buf, woff, wlen, USERFS_DEFAULT_DATA_BLOCK_SHARD_SIZE,
-                          write_inodebbuf, mount_sb, mount_bgd_idx_list);
-        woff += wlen;
+        char     write_buf[32] = {0};
+        uint32_t wlen          = 32;
+        snprintf(write_buf, wlen, "read/write test, times:%d", i);
+        uint32_t wsize  = userfs_file_write(write_buf, woff, wlen, USERFS_DEFAULT_DATA_BLOCK_SHARD_SIZE,
+                                            write_inodebbuf, mount_sb, mount_bgd_idx_list);
+        woff           += wlen;
+    }
+
+    uint32_t roff = 0;
+    for (int i = 0; i < wtimes; i++) {
+        char     read_buf[32] = {0};
+        uint32_t rlen         = 32;
+        uint32_t rsize        = userfs_file_read(read_buf, roff, rlen, USERFS_DEFAULT_DATA_BLOCK_SHARD_SIZE,
+                                                 write_inodebbuf, mount_sb);
+        LOG_DESC(DBG, "Main", "Read test:%s", read_buf);
+        roff += rlen;
     }
 #endif
     user_disk_close();

@@ -9,6 +9,8 @@
 #include <string.h>
 #include <sys/time.h>
 
+#define USERFS_FILE_HOLE_DATA (0)
+
 userfs_bbuf_t *userfs_file_create(
     const char              *name,
     const uint32_t           name_len,
@@ -303,7 +305,7 @@ int is_fileops_in_range(
     return (in_db_off >= dbbuf_s_off && in_db_off < (dbbuf_s_off + dbbuf_size));
 }
 
-userfs_bbuf_t *userfs_fileops_off_get(
+userfs_bbuf_t *userfs_file_write_off_get(
     const uint32_t           v_db_nr,
     const unsigned long      p_db_addr,
     const uint32_t           in_db_shard_off,
@@ -320,14 +322,14 @@ userfs_bbuf_t *userfs_fileops_off_get(
     if (!USERFS_INODEADDR_GET(p_db_addr)) {
         target_dbbuf = userfs_get_new_dblock(sb, bgd_idx_list, dblock_shard_size);
         if (!target_dbbuf) {
-            LOG_DESC(ERR, "USERFS FILE OFF", "Alloc new dblock for file failed, physical dblock addr:0x%lx, dblock shard size:0x%x",
+            LOG_DESC(ERR, "USERFS FILE WOFF", "Alloc new dblock for file failed, physical dblock addr:0x%lx, dblock shard size:0x%x",
                      p_db_addr, dblock_shard_size)
             return NULL;
         }
 
         p_db_nr                     = target_dbbuf->b_blocknr;
         target_dbbuf->b_block_s_off = in_db_shard_off;
-        LOG_DESC(DBG, "USERFS FILE OFF", "Alloc new dblock for file, dblock nr:%u, dblock shard size:0x%x, in dblock offset:0x%x",
+        LOG_DESC(DBG, "USERFS FILE WOFF", "Alloc new dblock for file, dblock nr:%u, dblock shard size:0x%x, in dblock offset:0x%x",
                  target_dbbuf->b_blocknr, target_dbbuf->b_size, target_dbbuf->b_block_s_off);
         inode->i_blocks += 1;
         return target_dbbuf;
@@ -338,12 +340,12 @@ userfs_bbuf_t *userfs_fileops_off_get(
         p_db_nr      = USERFS_INODEADDR_GET(p_db_addr);
         target_dbbuf = userfs_get_used_dblock(sb, p_db_nr, in_db_shard_off, dblock_shard_size);
         if (!target_dbbuf) {
-            LOG_DESC(ERR, "USERFS FILE OFF", "Get used dblock of file failed, dblock nr:%u, dblock shard size:0x%x",
+            LOG_DESC(ERR, "USERFS FILE WOFF", "Get used dblock of file failed, dblock nr:%u, dblock shard size:0x%x",
                      p_db_nr, dblock_shard_size);
             return NULL;
         }
 
-        LOG_DESC(DBG, "USERFS FILE OFF", "Get used dblock of file, dblock nr:%u, dblock shard size:0x%x, in dblock offset:0x%x",
+        LOG_DESC(DBG, "USERFS FILE WOFF", "Get used dblock of file, dblock nr:%u, dblock shard size:0x%x, in dblock offset:0x%x",
                  p_db_nr, dblock_shard_size, target_dbbuf->b_block_s_off);
         inode->i_v2pnode_table[v_db_nr] = (unsigned long)target_dbbuf;
         return target_dbbuf;
@@ -356,7 +358,7 @@ userfs_bbuf_t *userfs_fileops_off_get(
     for (int i = 0;
          i < head->b_list_len;
          i++, target_dbbuf = target_dbbuf->b_this_page) {
-        LOG_DESC(DBG, "USERFS FILE OFF", "Query dblock buf list, dblock buf:0x%p, dblock nr:%u, in dblock offset:0x%x",
+        LOG_DESC(DBG, "USERFS FILE WOFF", "Query dblock buf list, dblock buf:0x%p, dblock nr:%u, in dblock offset:0x%x",
                  target_dbbuf, target_dbbuf->b_blocknr, target_dbbuf->b_block_s_off);
         if (!is_fileops_in_range(in_db_shard_off, target_dbbuf->b_block_s_off, target_dbbuf->b_size)) {
             break;
@@ -367,7 +369,7 @@ userfs_bbuf_t *userfs_fileops_off_get(
     if (!target_dbbuf) {
         target_dbbuf = userfs_get_used_dblock(sb, p_db_nr, in_db_shard_off, dblock_shard_size);
         if (!target_dbbuf) {
-            LOG_DESC(ERR, "USERFS FILE OFF", "Read used dblock of file failed, dblock nr:%u, dblock shard size:0x%x, in dblock offset:0x%x",
+            LOG_DESC(ERR, "USERFS FILE WOFF", "Read used dblock of file failed, dblock nr:%u, dblock shard size:0x%x, in dblock offset:0x%x",
                      p_db_nr, dblock_shard_size, in_db_shard_off);
             return NULL;
         }
@@ -376,7 +378,66 @@ userfs_bbuf_t *userfs_fileops_off_get(
         head->b_this_page          = target_dbbuf;
     }
 
-    LOG_DESC(DBG, "USERFS FILE OFF", "Get used dblock of file, list len:%u dblock buf:0x%p, dblock nr:%u, dblock shard size:0x%x, in dblock offset:0x%x",
+    LOG_DESC(DBG, "USERFS FILE WOFF", "Get used dblock of file, list len:%u dblock buf:0x%p, dblock nr:%u, dblock shard size:0x%x, in dblock offset:0x%x",
+             head->b_list_len, target_dbbuf, target_dbbuf->b_blocknr, dblock_shard_size, target_dbbuf->b_block_s_off);
+    return target_dbbuf;
+}
+
+userfs_bbuf_t *userfs_file_read_off_get(
+    const uint32_t        v_db_nr,
+    const unsigned long   p_db_addr,
+    const uint32_t        in_db_shard_off,
+    const uint32_t        dblock_shard_size,
+    userfs_inode_t       *inode,
+    userfs_super_block_t *sb)
+{
+    userfs_bbuf_t *target_dbbuf = NULL;
+    uint32_t       p_db_nr      = 0;
+
+    /*dblock has been allocated, but not been read, read it*/
+    if (USERFS_INODETYPE_GET(p_db_addr) == USERFS_NAME2INODE) {
+        p_db_nr      = USERFS_INODEADDR_GET(p_db_addr);
+        target_dbbuf = userfs_get_used_dblock(sb, p_db_nr, in_db_shard_off, dblock_shard_size);
+        if (!target_dbbuf) {
+            LOG_DESC(ERR, "USERFS FILE ROFF", "Get used dblock of file failed, dblock nr:%u, dblock shard size:0x%x",
+                     p_db_nr, dblock_shard_size);
+            return NULL;
+        }
+
+        LOG_DESC(DBG, "USERFS FILE ROFF", "Get used dblock of file, dblock nr:%u, dblock shard size:0x%x, in dblock offset:0x%x",
+                 p_db_nr, dblock_shard_size, target_dbbuf->b_block_s_off);
+        inode->i_v2pnode_table[v_db_nr] = (unsigned long)target_dbbuf;
+        return target_dbbuf;
+    }
+
+    /*otherwise, this block has been open, but may not be the offset want
+    in this case, need to query list to decide whether read or directly referring it*/
+    target_dbbuf        = (userfs_bbuf_t *)USERFS_INODEADDR_GET(p_db_addr);
+    userfs_bbuf_t *head = target_dbbuf;
+    for (int i = 0;
+         i < head->b_list_len;
+         i++, target_dbbuf = target_dbbuf->b_this_page) {
+        LOG_DESC(DBG, "USERFS FILE ROFF", "Query dblock buf list, dblock buf:0x%p, dblock nr:%u, in dblock offset:0x%x",
+                 target_dbbuf, target_dbbuf->b_blocknr, target_dbbuf->b_block_s_off);
+        if (!is_fileops_in_range(in_db_shard_off, target_dbbuf->b_block_s_off, target_dbbuf->b_size)) {
+            break;
+        }
+    }
+
+    /*the offset current write ops want hasn't been read yet, read it*/
+    if (!target_dbbuf) {
+        target_dbbuf = userfs_get_used_dblock(sb, p_db_nr, in_db_shard_off, dblock_shard_size);
+        if (!target_dbbuf) {
+            LOG_DESC(ERR, "USERFS FILE ROFF", "Read used dblock of file failed, dblock nr:%u, dblock shard size:0x%x, in dblock offset:0x%x",
+                     p_db_nr, dblock_shard_size, in_db_shard_off);
+            return NULL;
+        }
+        head->b_list_len          += 1;
+        target_dbbuf->b_this_page  = head->b_this_page;
+        head->b_this_page          = target_dbbuf;
+    }
+
+    LOG_DESC(DBG, "USERFS FILE ROFF", "Get used dblock of file, list len:%u dblock buf:0x%p, dblock nr:%u, dblock shard size:0x%x, in dblock offset:0x%x",
              head->b_list_len, target_dbbuf, target_dbbuf->b_blocknr, dblock_shard_size, target_dbbuf->b_block_s_off);
     return target_dbbuf;
 }
@@ -403,7 +464,7 @@ uint32_t userfs_file_write(
     uint32_t in_db_off       = real_woff % sb->s_data_block_size;
     uint32_t in_shard_off    = real_woff % dblock_shard_size;
     uint32_t in_db_shard_off = in_db_off - in_shard_off;
-    /*write offset and write size must align to data block shard size,
+    /*write offset and write size must keep in one data block shard,
     otherwise must cut into series of write ops*/
     if ((in_shard_off + size) > dblock_shard_size) {
         real_size = dblock_shard_size - in_db_off;
@@ -425,8 +486,8 @@ uint32_t userfs_file_write(
              inodebbuf->b_blocknr, v_db_nr, in_db_off, in_db_shard_off, p_db_addr);
 
     /*get dblock buf from target data block with target offset*/
-    userfs_bbuf_t *target_dbbuf = userfs_fileops_off_get(v_db_nr, p_db_addr, in_db_shard_off,
-                                                         dblock_shard_size, write_inode, bgd_idx_list, sb);
+    userfs_bbuf_t *target_dbbuf = userfs_file_write_off_get(v_db_nr, p_db_addr, in_db_shard_off,
+                                                            dblock_shard_size, write_inode, bgd_idx_list, sb);
     if (target_dbbuf == NULL) {
         LOG_DESC(ERR, "USERFS FILE WRITE", "Read target dblock buf failed");
         return 0;
@@ -435,7 +496,7 @@ uint32_t userfs_file_write(
     /*write to target data block buf*/
     char *target_buf = USERFS_DBLOCK(target_dbbuf->b_data)->data;
 
-    memcpy(target_buf + in_shard_off, buf, size);
+    memcpy(target_buf + in_shard_off, buf, real_size);
     /*update inode v2pdblock table, file dblocks count and file size(if needed)*/
     if (USERFS_INODETYPE_GET(p_db_addr) == USERFS_NAME2INODE) {
         write_inode->i_v2pnode_table[v_db_nr] = (unsigned long)target_dbbuf;
@@ -446,7 +507,7 @@ uint32_t userfs_file_write(
 
     write_inode->i_mtime = file_modity_ts.tv_sec;
     LOG_DESC(DBG, "USERFS FILE WRITE", "Write to file success, write dblock nr:%u, in dblock shard off:0x%x,\
-in shard off:0x%x, shard size:0x%x, real woff:0x%x, real size:0x%x, file blocks:%u, file size:%u",
+in shard off:0x%x, shard size:0x%x, real woff:0x%x, real size:%u, file blocks:%u, file size:%u",
              target_dbbuf->b_blocknr, in_db_shard_off, in_shard_off, dblock_shard_size, real_woff, real_size,
              write_inode->i_blocks, write_inode->i_size);
 
@@ -454,72 +515,81 @@ in shard off:0x%x, shard size:0x%x, real woff:0x%x, real size:0x%x, file blocks:
 }
 
 uint32_t userfs_file_read(
-    const char              *buf,
-    const uint32_t           roff,
-    const uint32_t           size,
-    const uint32_t           dblock_shard_size,
-    userfs_bbuf_t           *inodebbuf,
-    userfs_super_block_t    *sb)
+    char                 *buf,
+    const uint32_t        roff,
+    const uint32_t        size,
+    const uint32_t        dblock_shard_size,
+    userfs_bbuf_t        *inodebbuf,
+    userfs_super_block_t *sb)
 {
     /*reserve space for inode*/
     if (roff >= (UINT32_MAX - USERFS_INODE_SIZE)) {
-        LOG_DESC(ERR, "USERFS FILE WRITE", "No space to write, woff:0x%x", roff);
+        LOG_DESC(ERR, "USERFS FILE READ", "inode reserved space, read off:0x%x", roff);
         return 0;
     }
 
-    uint32_t real_woff       = roff + USERFS_INODE_SIZE;
+    uint32_t real_roff       = roff + USERFS_INODE_SIZE;
     uint32_t real_size       = size;
-
-    uint32_t v_db_nr         = real_woff / sb->s_data_block_size;
-    uint32_t in_db_off       = real_woff % sb->s_data_block_size;
-    uint32_t in_shard_off    = real_woff % dblock_shard_size;
+    uint32_t v_db_nr         = real_roff / sb->s_data_block_size;
+    uint32_t in_db_off       = real_roff % sb->s_data_block_size;
+    uint32_t in_shard_off    = real_roff % dblock_shard_size;
     uint32_t in_db_shard_off = in_db_off - in_shard_off;
-    /*write offset and write size must align to data block shard size,
+    /*read offset and read size must align to data block shard size,
     otherwise must cut into series of write ops*/
     if ((in_shard_off + size) > dblock_shard_size) {
         real_size = dblock_shard_size - in_db_off;
-        LOG_DESC(WAR, "USERFS FILE WRITE", "Write size must align to data block shard size, in shard offset:0x%x, expect wlen:0x%x, real wlen:0x%x, dblock shard size:0x%x",
+        LOG_DESC(WAR, "USERFS FILE READ", "Read size must align to data block shard size, in shard offset:0x%x, expect rsize:0x%x, real rsize:0x%x, dblock shard size:0x%x",
                  in_shard_off, size, real_size, dblock_shard_size);
     }
 
-    /*get current time as file modify time stamp*/
-    struct timeval file_modity_ts = {0};
-    if (gettimeofday(&file_modity_ts, NULL) < 0) {
-        perror("USERFS FILE WRITE");
+    userfs_inode_t *read_inode = USERFS_DBLOCK(inodebbuf->b_data)->inode;
+    unsigned long   p_db_addr  = read_inode->i_v2pnode_table[v_db_nr];
+    uint32_t        p_db_nr    = 0;
+    LOG_DESC(DBG, "USERFS FILE READ", "inode nr:%u, logic dblock nr:%u, in dblock offset:0x%x, in dblock shard offset:0x%x, physical dblock addr:0x%lx",
+             inodebbuf->b_blocknr, v_db_nr, in_db_off, in_db_shard_off, p_db_addr);
+
+    /*read offset and size also must less than file size*/
+    if (read_inode->i_size < (real_roff + real_size - USERFS_INODE_SIZE)) {
+        LOG_DESC(ERR, "USERFS FILE READ", "Read offset reach out file,file size:0x%x, read start offset:0x%x, read end offset:0x%x",
+                 read_inode->i_size, real_roff - USERFS_INODE_SIZE, real_roff + real_size - USERFS_INODE_SIZE);
+        return 0;
+    }
+    /*if read file hole, directly return all-zero buf*/
+    if (!USERFS_INODEADDR_GET(p_db_addr)) {
+        LOG_DESC(DBG, "USERFS FILE READ", "Read file hole, read start offset:0x%x, read end offset:0x%x",
+                 real_roff - USERFS_INODE_SIZE, real_roff + real_size - USERFS_INODE_SIZE);
+        memset(buf, USERFS_FILE_HOLE_DATA, real_size);
+        return real_size;
+    }
+
+    /*get current time as file access time stamp*/
+    struct timeval file_access_ts = {0};
+    if (gettimeofday(&file_access_ts, NULL) < 0) {
+        perror("USERFS FILE READ");
         return 0;
     }
 
-    userfs_inode_t *write_inode = USERFS_DBLOCK(inodebbuf->b_data)->inode;
-    unsigned long   p_db_addr   = write_inode->i_v2pnode_table[v_db_nr];
-    uint32_t        p_db_nr     = 0;
-    LOG_DESC(DBG, "USERFS FILE WRITE", "inode nr:%u, logic dblock nr:%u, in dblock offset:0x%x, in dblock shard offset:0x%x, physical dblock addr:0x%lx",
-             inodebbuf->b_blocknr, v_db_nr, in_db_off, in_db_shard_off, p_db_addr);
-
     /*get dblock buf from target data block with target offset*/
-    userfs_bbuf_t *target_dbbuf = userfs_fileops_off_get(v_db_nr, p_db_addr, in_db_shard_off,
-                                                         dblock_shard_size, write_inode, bgd_idx_list, sb);
+    userfs_bbuf_t *target_dbbuf = userfs_file_read_off_get(v_db_nr, p_db_addr, in_db_shard_off,
+                                                           dblock_shard_size, read_inode, sb);
     if (target_dbbuf == NULL) {
-        LOG_DESC(ERR, "USERFS FILE WRITE", "Read target dblock buf failed");
+        LOG_DESC(ERR, "USERFS FILE READ", "Read target dblock buf failed");
         return 0;
     }
 
     /*write to target data block buf*/
     char *target_buf = USERFS_DBLOCK(target_dbbuf->b_data)->data;
-
-    memcpy(target_buf + in_shard_off, buf, size);
+    memcpy(buf, target_buf + in_shard_off, real_size);
     /*update inode v2pdblock table, file dblocks count and file size(if needed)*/
     if (USERFS_INODETYPE_GET(p_db_addr) == USERFS_NAME2INODE) {
-        write_inode->i_v2pnode_table[v_db_nr] = (unsigned long)target_dbbuf;
+        read_inode->i_v2pnode_table[v_db_nr] = (unsigned long)target_dbbuf;
     }
-    write_inode->i_size  = write_inode->i_size < (real_woff + real_size - USERFS_INODE_SIZE)
-                               ? (real_woff + real_size - USERFS_INODE_SIZE)
-                               : write_inode->i_size;
 
-    write_inode->i_mtime = file_modity_ts.tv_sec;
-    LOG_DESC(DBG, "USERFS FILE WRITE", "Write to file success, write dblock nr:%u, in dblock shard off:0x%x,\
+    read_inode->i_atime = file_access_ts.tv_sec;
+    LOG_DESC(DBG, "USERFS FILE READ", "Write to file success, write dblock nr:%u, in dblock shard off:0x%x,\
 in shard off:0x%x, shard size:0x%x, real roff:0x%x, real size:0x%x, file blocks:%u, file size:%u",
-             target_dbbuf->b_blocknr, in_db_shard_off, in_shard_off, dblock_shard_size, real_woff, real_size,
-             write_inode->i_blocks, write_inode->i_size);
+             target_dbbuf->b_blocknr, in_db_shard_off, in_shard_off, dblock_shard_size, real_roff, real_size,
+             read_inode->i_blocks, read_inode->i_size);
 
     return real_size;
 }
