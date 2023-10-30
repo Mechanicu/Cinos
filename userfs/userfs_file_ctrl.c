@@ -201,7 +201,6 @@ userfs_bbuf_t *userfs_get_new_inode(
     inode->i_mtime            = file_create_tp->tv_sec;
     inode->i_dtime            = 0;
     inode->i_size             = 0;
-    inode->i_blocks           = 1;
     inode->i_v2pnode_table[0] = inode_bbuf->b_blocknr;
     LOG_DESC(DBG, "USERFS INODE ALLOC", "File create time:0x%lx, file size:0x%x, file blocks:%u, first block:%lu",
              inode->i_ctime, inode->i_size, inode->i_blocks, inode->i_v2pnode_table[0]);

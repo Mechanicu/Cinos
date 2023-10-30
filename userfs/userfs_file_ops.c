@@ -194,7 +194,9 @@ int userfs_file_close(
         res = -1;
     }
     /*rewrite data block number to inode block buf*/
-    for (int i = 0; i < close_inode->i_blocks; i++) {
+    /*because of file hole, file blocks count must be set by file size*/
+    close_inode->i_blocks = (close_inode->i_size + sb->s_data_block_size - 1) / sb->s_data_block_size;
+    for (int i = 1; i < close_inode->i_blocks; i++) {
         unsigned long cur_db_addr = close_inode->i_v2pnode_table[i];
         /*non-opened data block, skip*/
         if (USERFS_INODETYPE_GET(cur_db_addr) == USERFS_NAME2INODE) {
@@ -203,14 +205,24 @@ int userfs_file_close(
         }
 
         /*opened data block, flush data to disk*/
-        userfs_bbuf_t *cur_dbbuf_head = (userfs_bbuf_t *)USERFS_INODEADDR_GET(cur_db_addr);
-        LOG_DESC(DBG, "USERFS FILE CLOSE", "Opened dblock, dblock nr:%u, dblock buf:0x%p, list len:%u",
-                 cur_dbbuf_head->b_blocknr, cur_dbbuf_head, cur_dbbuf_head->b_list_len);
+        userfs_bbuf_t *cur_dbbuf_head   = (userfs_bbuf_t *)USERFS_INODEADDR_GET(cur_db_addr);
+        close_inode->i_v2pnode_table[i] = USERFS_INODEADDRINFO_CAL(USERFS_NAME2INODE, cur_dbbuf_head->b_blocknr);
+        LOG_DESC(DBG, "USERFS FILE CLOSE", "Opened dblock, dblock nr:%lu, dblock buf:0x%p, list len:%u",
+                 USERFS_INODEADDR_GET(close_inode->i_v2pnode_table[i]), cur_dbbuf_head, cur_dbbuf_head->b_list_len);
+
         if (userfs_dbbuf_list_flush(sb->s_first_datablock, sb->s_data_block_size, cur_dbbuf_head, cur_dbbuf_head->b_list_len) < 0) {
-            LOG_DESC(ERR, "USERFS FILE CLOSE", "Opened dblock list flush FAILED, file:%s, dblock nr:%u, dblock buf:0x%p, list len:%u",
-                     name, cur_dbbuf_head->b_blocknr, cur_dbbuf_head, cur_dbbuf_head->b_list_len);
+            LOG_DESC(ERR, "USERFS FILE CLOSE", "Opened dblock list flush FAILED, file:%s, dblock nr:%lu, dblock buf:0x%p, list len:%u",
+                     name, USERFS_INODEADDR_GET(close_inode->i_v2pnode_table[i]), cur_dbbuf_head, cur_dbbuf_head->b_list_len);
         }
     }
+    /*because of v2pdblock table update needs, inode buf is last one to be flushed*/
+    close_inode->i_v2pnode_table[0] = USERFS_INODEADDRINFO_CAL(USERFS_NAME2INODE, ff_bbuf->b_blocknr);
+    if (userfs_dbbuf_list_flush(sb->s_first_datablock, sb->s_data_block_size, ff_bbuf, ff_bbuf->b_list_len) < 0) {
+        LOG_DESC(ERR, "USERFS FILE CLOSE", "Opened dblock list flush FAILED, file:%s, dblock nr:%lu, dblock buf:0x%p, list len:%u",
+                 name, USERFS_INODEADDR_GET(close_inode->i_v2pnode_table[0]), ff_bbuf, ff_bbuf->b_list_len);
+    }
+    LOG_DESC(DBG, "USERFS FILE CLOSE", "Flush inode dblock, dblock nr:%lu, dblock buf:0x%p, list len:%u",
+             USERFS_INODEADDR_GET(close_inode->i_v2pnode_table[0]), ff_bbuf, ff_bbuf->b_list_len);
 
     LOG_DESC(DBG, "USERFS FILE CLOSE", "Close file success, file:%s, first block:%u, dblock buf:%p, close time:0x%lx",
              name, ff_bbuf->b_blocknr, ff_bbuf, file_close_tp.tv_sec);
@@ -331,7 +343,8 @@ userfs_bbuf_t *userfs_file_write_off_get(
         target_dbbuf->b_block_s_off = in_db_shard_off;
         LOG_DESC(DBG, "USERFS FILE WOFF", "Alloc new dblock for file, dblock nr:%u, dblock shard size:0x%x, in dblock offset:0x%x",
                  target_dbbuf->b_blocknr, target_dbbuf->b_size, target_dbbuf->b_block_s_off);
-        inode->i_blocks += 1;
+        /*because of file hole, its meaning less to update file blocks count here,
+        update it when close/flush data*/
         return target_dbbuf;
     }
 
@@ -347,7 +360,7 @@ userfs_bbuf_t *userfs_file_write_off_get(
 
         LOG_DESC(DBG, "USERFS FILE WOFF", "Get used dblock of file, dblock nr:%u, dblock shard size:0x%x, in dblock offset:0x%x",
                  p_db_nr, dblock_shard_size, target_dbbuf->b_block_s_off);
-        inode->i_v2pnode_table[v_db_nr] = (unsigned long)target_dbbuf;
+        inode->i_v2pnode_table[v_db_nr] = USERFS_INODEADDRINFO_CAL(USERFS_NAME2INODEBUF, target_dbbuf);
         return target_dbbuf;
     }
 
@@ -406,7 +419,7 @@ userfs_bbuf_t *userfs_file_read_off_get(
 
         LOG_DESC(DBG, "USERFS FILE ROFF", "Get used dblock of file, dblock nr:%u, dblock shard size:0x%x, in dblock offset:0x%x",
                  p_db_nr, dblock_shard_size, target_dbbuf->b_block_s_off);
-        inode->i_v2pnode_table[v_db_nr] = (unsigned long)target_dbbuf;
+        inode->i_v2pnode_table[v_db_nr] = USERFS_INODEADDRINFO_CAL(USERFS_NAME2INODEBUF, target_dbbuf);
         return target_dbbuf;
     }
 
@@ -497,9 +510,9 @@ uint32_t userfs_file_write(
     char *target_buf = USERFS_DBLOCK(target_dbbuf->b_data)->data;
 
     memcpy(target_buf + in_shard_off, buf, real_size);
-    /*update inode v2pdblock table, file dblocks count and file size(if needed)*/
+    /*update inode v2pdblock table and file size(if needed)*/
     if (USERFS_INODETYPE_GET(p_db_addr) == USERFS_NAME2INODE) {
-        write_inode->i_v2pnode_table[v_db_nr] = (unsigned long)target_dbbuf;
+        write_inode->i_v2pnode_table[v_db_nr] = USERFS_INODEADDRINFO_CAL(USERFS_NAME2INODEBUF, target_dbbuf);
     }
     write_inode->i_size  = write_inode->i_size < (real_woff + real_size - USERFS_INODE_SIZE)
                                ? (real_woff + real_size - USERFS_INODE_SIZE)
@@ -582,11 +595,11 @@ uint32_t userfs_file_read(
     memcpy(buf, target_buf + in_shard_off, real_size);
     /*update inode v2pdblock table, file dblocks count and file size(if needed)*/
     if (USERFS_INODETYPE_GET(p_db_addr) == USERFS_NAME2INODE) {
-        read_inode->i_v2pnode_table[v_db_nr] = (unsigned long)target_dbbuf;
+        read_inode->i_v2pnode_table[v_db_nr] = USERFS_INODEADDRINFO_CAL(USERFS_NAME2INODEBUF, target_dbbuf);
     }
 
     read_inode->i_atime = file_access_ts.tv_sec;
-    LOG_DESC(DBG, "USERFS FILE READ", "Write to file success, write dblock nr:%u, in dblock shard off:0x%x,\
+    LOG_DESC(DBG, "USERFS FILE READ", "Read from file success, write dblock nr:%u, in dblock shard off:0x%x,\
 in shard off:0x%x, shard size:0x%x, real roff:0x%x, real size:0x%x, file blocks:%u, file size:%u",
              target_dbbuf->b_blocknr, in_db_shard_off, in_shard_off, dblock_shard_size, real_roff, real_size,
              read_inode->i_blocks, read_inode->i_size);
