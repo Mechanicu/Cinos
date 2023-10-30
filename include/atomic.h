@@ -4,6 +4,8 @@
 #include <pthread.h>
 #include <unistd.h>
 
+#define ATOMIC_CAS(atomic, oldval, newval) __sync_bool_compare_and_swap(atomic, oldval, newval)
+
 typedef struct atomic {
     /* data */
     volatile int value;
@@ -14,7 +16,7 @@ static inline int atomic_set(atomic_t *var, int val)
     int old;
     do {
         old = var->value;
-    } while (!__sync_bool_compare_and_swap(&(var->value), old, val));
+    } while (!ATOMIC_CAS(&(var->value), old, val));
     return val;
 }
 
@@ -25,7 +27,7 @@ static inline int atomic_store(atomic_t *var, int val)
     do {
         old = var->value;
         new = old + val;
-    } while (!__sync_bool_compare_and_swap(&(var->value), old, new));
+    } while (!ATOMIC_CAS(&(var->value), old, new));
     return new;
 }
 
@@ -41,7 +43,7 @@ static inline int atomic_add(atomic_t *var, int val)
     do {
         old = var->value;
         new = old + val;
-    } while (!__sync_bool_compare_and_swap(&(var->value), old, new));
+    } while (!ATOMIC_CAS(&(var->value), old, new));
     return new;
 }
 
@@ -52,7 +54,7 @@ static inline int atomic_sub(atomic_t *var, int val)
     do {
         old = var->value;
         new = old - val;
-    } while (!__sync_bool_compare_and_swap(&(var->value), old, new));
+    } while (!ATOMIC_CAS(&(var->value), old, new));
     return new;
 }
 
