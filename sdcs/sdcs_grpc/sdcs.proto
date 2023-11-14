@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+option go_package = "test/sdcs/sdcs_grpc";
+
+package sdcs_grpc;
+
+service sdcs_sync {
+  rpc SetIndex (SetIndexReq) returns (SetIndexRep) {}
+  rpc SetData (SetDataReq) returns (SetDataRep) {}
+  rpc GetData (GetDataReq) returns (GetDataRep) {}
+  rpc DeleteIndex (DeleteIndexReq) returns (DeleteIndexRep) {}
+}
+
+message SetIndexReq {
+  string key = 1;
+  int32  node_id = 2;
+}
+
+message SetIndexRep {
+  bool res = 1;
+}
+
+message SetDataReq {
+  string key = 1;
+  string val = 2;
+}
+
+message SetDataRep {
+  bool res = 1;
+}
+
+message GetDataReq {
+  string key = 1;
+}
+
+message GetDataRep {
+  string val = 1;
+  int32 node_id = 2;
+  bool res = 3;
+}
+
+message DeleteIndexReq {
+  string key = 1;
+}
+
+message DeleteIndexRep {
+  bool res = 1;
+}
