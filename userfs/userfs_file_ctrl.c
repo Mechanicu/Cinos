@@ -241,7 +241,7 @@ int userfs_free_dentry(
     userfs_dentry_table_t *dentry_table,
     uint32_t               dentry_pos)
 {
-    uint32_t res = -1;
+    uint32_t                      res  = -1;
     userfs_dentry_table_header_t *dt_h = &(dentry_table->h);
     if (dentry_pos < dt_h->dfd_first_dentry && dentry_pos >= dt_h->dfd_first_free_dentry) {
         LOG_DESC(ERR, "USERFS DENTRY FREE", "Dentry pos:%u isn't allocated, first used:%u, first free:%u",

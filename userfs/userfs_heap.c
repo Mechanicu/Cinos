@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define USERFS_HEAP_LOG_LEVEL INF
+#define USERFS_HEAP_LOG_LEVEL DBG
 
 userfs_mrheap_t *userfs_mrheap_create(
     uint32_t capacity)

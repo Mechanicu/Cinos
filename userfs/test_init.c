@@ -10,10 +10,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#define INODE_WRITE_CHECK 0
-#define USERFS_CREATE     0
-#define FILE_CREATE       0
-#define FILE_WRITE        0
+#define USERFS_CREATE 0
+#define FILE_WRITE    1
 
 /**/
 userfs_super_block_t *userfs_suber_block_alloc(
@@ -109,9 +107,7 @@ int main(int argc, char **argv)
     }
 
     /**/
-    if (userfs_mbbuf_list_flush(g_sb->s_first_metablock, g_sb->s_metablock_size, bgdesc_table_list, bgdesc_table_list->b_list_len) < 0) {
-        exit(0);
-    }
+    userfs_mbbuf_list_flush(g_sb->s_first_metablock, g_sb->s_metablock_size, bgdesc_table_list, bgdesc_table_list->b_list_len);
     userfs_mbbuf_list_flush(g_sb->s_first_metablock, g_sb->s_metablock_size, sb_bbuf, sb_bbuf->b_list_len);
     userfs_mbbuf_list_flush(g_sb->s_first_metablock, g_sb->s_metablock_size, dentry_table_bbuf, dentry_table_bbuf->b_list_len);
 #endif
@@ -156,7 +152,6 @@ int main(int argc, char **argv)
     userfs_bbuf_t *inodebbuf[TEST_FILE_COUNT];
     char           filename[TEST_FILE_COUNT];
     uint32_t       filecount = 32;
-#if FILE_CREATE == 1
     for (int i = 0; i < filecount; i++) {
         snprintf(filename, 26, "testfile.<1234 %d>.txt", i);
         inodebbuf[i] =
@@ -165,13 +160,9 @@ int main(int argc, char **argv)
         inodebbuf[i] = userfs_file_open(filename, strlen(filename), USERFS_DEFAULT_DATA_BLOCK_SHARD_SIZE, mount_sb, dentry_hashtable);
         int res      = userfs_file_close(filename, strlen(filename), USERFS_DEFAULT_DATA_BLOCK_SHARD_SIZE, mount_sb, dentry_hashtable);
         res          = userfs_file_close(filename, strlen(filename), USERFS_DEFAULT_DATA_BLOCK_SHARD_SIZE, mount_sb, dentry_hashtable);
-
         res          = userfs_file_delete(filename, strlen(filename), mount_sb, dentry_table, dentry_hashtable);
     }
-    userfs_mbbuf_list_flush(mount_sb->s_first_metablock, mount_sb->s_metablock_size, mount_sb_buf, mount_sb_buf->b_list_len);
-    userfs_mbbuf_list_flush(mount_sb->s_first_metablock, mount_sb->s_metablock_size, mount_bg_desc_table, mount_bg_desc_table->b_list_len);
-    userfs_mbbuf_list_flush(mount_sb->s_first_metablock, mount_sb->s_metablock_size, mount_dentry_table, mount_dentry_table->b_list_len);
-#endif
+
     uint32_t wtimes = 8;
     uint32_t woff   = 0;
     snprintf(filename, 26, "write_file_test.txt");

@@ -18,7 +18,7 @@ uint64_t user_disk_read(void *buf, uint64_t size, uint64_t disk_off)
 
 int userfs_disk_open(const char *pathname)
 {
-    g_disk_fd = open(pathname, O_RDWR);
+    g_disk_fd = open(pathname, O_RDWR | O_CREAT, 0777);
     if (g_disk_fd < 0) {
         return g_disk_fd;
     }

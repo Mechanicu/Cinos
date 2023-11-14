@@ -10,13 +10,14 @@
 int main(int argc, char **argv)
 {
     // input
-    int           domain     = AF_UNIX;
-    int           type       = SOCK_STREAM;
-    int           protocol   = 0;
-    char          sockpath[] = "./unix_domain_test";
-    int           back_log   = 16;
-    us_connect_t *ud         = unix_socket_listen(domain, type, protocol, sockpath, back_log);
-    node_ep_t     monitor_ep =
+    int            domain   = AF_INET;
+    int            type     = SOCK_STREAM;
+    unsigned short port     = 50000;
+    int            protocol = 0;
+    char          *sockpath = "127.0.0.1";
+    int            back_log = 16;
+    us_connect_t  *ud       = unix_socket_listen(domain, type, protocol, sockpath, port, back_log);
+    node_ep_t      monitor_ep =
         {.ep_type = EP_SOCKET,
          .epfd    = ud->socket_fd,
          .node_id = 0};

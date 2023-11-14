@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#define USERFS_DENTRY_HASH_LOG_LEVEL INF
+#define USERFS_DENTRY_HASH_LOG_LEVEL DBG
 
 #define USERFS_DHASH_MEM_ALLOC(size) malloc(size)
 #define USERFS_DHASH_MEM_FREE(ptr)  \

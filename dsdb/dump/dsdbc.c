@@ -7,16 +7,17 @@
 
 int main(int argc, char **argv)
 {
-    int           domain     = AF_UNIX;
-    int           type       = SOCK_STREAM;
-    int           protocol   = 0;
-    char          sockpath[] = "./unix_domain_test";
-    int           back_log   = 16;
-    us_connect_t *ud         = unix_socket_connect(domain, type, protocol, sockpath, back_log);
+    int            domain   = AF_INET;
+    int            type     = SOCK_STREAM;
+    int            protocol = 0;
+    unsigned short port     = 50000;
+    char          *sockpath = "127.0.0.1";
+    int            back_log = 16;
+    us_connect_t  *ud       = unix_socket_connect(domain, type, protocol, sockpath, port, back_log);
 
-    node_ep_t monitor        = {
-               .ep_type = EP_SOCKET,
-               .epfd    = ud->socket_fd};
+    node_ep_t monitor       = {
+              .ep_type = EP_SOCKET,
+              .epfd    = ud->socket_fd};
     node_addr_t     curnode = {.node_path = "192.168.0.2"};
     node_ep_list_t *eplist  = check_nodes_list(&monitor, &curnode, NULL);
     for (int i = 0; i < eplist->ep_count; i++) {
