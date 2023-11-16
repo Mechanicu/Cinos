@@ -15,7 +15,7 @@ import (
 
 // http service listen address
 const http_ipaddr string = "127.0.0.1"
-const http_start_port uint16 = 8011
+const http_start_port uint16 = 9527
 const http_pattern string = "/"
 const invalid_nodeid int32 = -1
 
@@ -196,7 +196,5 @@ func main() {
 			local_nodeid, i, grpc_address[i].ipaddr, grpc_address[i].port)
 		i++
 	}
-	for {
-
-	}
+	select {}
 }
