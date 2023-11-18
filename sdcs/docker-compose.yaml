@@ -2,12 +2,29 @@ services:
   server1:
     build: .
     command: /root/sdcs 0
-    network_mode: host
+    container_name: server1
+    ports:
+      - "127.0.0.1:9527:9527"
+    networks:
+      - my-network
+
   server2:
     build: .
     command: /root/sdcs 1
-    network_mode: host
+    container_name: server2
+    ports:
+      - "127.0.0.1:9528:9528"
+    networks:
+      - my-network
+
   server3:
     build: .
     command: /root/sdcs 2
-    network_mode: host
+    container_name: server3
+    ports:
+      - "127.0.0.1:9529:9529"
+    networks:
+      - my-network
+
+networks:
+  my-network:

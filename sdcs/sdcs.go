@@ -14,7 +14,7 @@ import (
 )
 
 // http service listen address
-const http_ipaddr string = "127.0.0.1"
+const http_ipaddr string = "0.0.0.0"
 const http_start_port uint16 = 9527
 const http_pattern string = "/"
 const invalid_nodeid int32 = -1

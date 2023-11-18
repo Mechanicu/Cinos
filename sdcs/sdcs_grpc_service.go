@@ -26,14 +26,16 @@ type SdcsGrpcServer struct {
 }
 
 // grpc service listen address
-const grpc_ipaddr string = "127.0.0.1"
+const grpc_ipaddr_test string = "127.0.0.1"
+const grpc_container_name_prefix string = "server"
+const grpc_ipaddr = grpc_container_name_prefix
 const grpc_start_port uint16 = 50000
 const node_count = 3
 
 var grpc_address = []GrpcAddress{
-	{grpc_ipaddr, grpc_start_port},
-	{grpc_ipaddr, grpc_start_port + 1},
-	{grpc_ipaddr, grpc_start_port + 2},
+	{grpc_ipaddr + "1", grpc_start_port},
+	{grpc_ipaddr + "2", grpc_start_port + 1},
+	{grpc_ipaddr + "3", grpc_start_port + 2},
 }
 var grpc_client [node_count]pb.SdcsSyncClient
 
