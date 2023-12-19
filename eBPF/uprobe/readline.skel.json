@@ -1,0 +1,1 @@
+{"bpf_skel":{"data_sections":[],"maps":[{"ident":"rodata","name":"readline.rodata"}],"obj_name":"readline_bpf","progs":[{"attach":"uretprobe//bin/bash:readline","link":true,"name":"printret"}]},"eunomia_version":"0.3.3"}

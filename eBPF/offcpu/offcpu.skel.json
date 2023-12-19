@@ -1,0 +1,1 @@
+{"bpf_skel":{"data_sections":[],"maps":[{"ident":"stack_count_map","name":"stack_count_map"},{"ident":"ptrace_sched_trace_map","name":"ptrace_sched_trace_map"},{"ident":"stack_trace_map","name":"stack_trace_map"}],"obj_name":"offcpu_bpf","progs":[{"attach":"tp_bpf/sched_switch","link":true,"name":"sched_switch"}]},"eunomia_version":"0.3.4"}

@@ -1,0 +1,23 @@
+ATTENTION: 
+1.the file *vmlinux.h* is for bpf program compiling.
+It contains every type used in current kernel version.
+Can use bpftool to generate it, here is cmd:
+bpftool btf dump file /sys/kernel/btf/vmlinux format c
+
+POINT:
+1.hello_world:
+    eBPF develop environment
+    each eBPF program must include lisense
+    use trace_point/tp mount point to trace syscalls
+
+7.execsnoop(with perf buffer):
+    eBPF can use perf event buf to transfer data between kernel and user space
+    eBPF usually use a .map-type section to store data, each eBPF program needs
+different .map-type section, decided by *TYPE*, other member may also different,
+each condition has its own .map-type section
+    when compile, must manully compile *.h and *.c, only compile *.c which includes 
+*.h won't work
+    usually, perf event needs user space program call perf_event_open() to open perf event
+and decide which event to trace and for which core and process
+
+8.execsnoop(with ring buffer)
