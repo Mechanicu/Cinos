@@ -1,0 +1,19 @@
+#!/usr/bin/bpftrace
+
+#include <linux/path.h>
+#include <linux/dcache.h>
+
+kprobe:do_sys_open
+{
+    printf("[%s] dfd:%d name:%s flag:%x mode:%hx\n", 
+        comm,
+        arg0, 
+        str(arg1), 
+        arg2, 
+        arg3);
+}
+
+kretprobe:do_sys_open
+{
+    printf("[%s] retval:%d\n", comm, retval);
+}

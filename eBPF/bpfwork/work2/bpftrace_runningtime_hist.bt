@@ -1,0 +1,16 @@
+#!/usr/bin/bpftrace
+
+#include <linux/path.h>
+#include <linux/dcache.h>
+
+tracepoint:syscalls:sys_enter_read
+{
+    @start[tid] = nsecs;
+}
+
+tracepoint:syscalls:sys_exit_read
+/@start[tid]/
+{
+    @ns[comm] = hist(nsecs - @start[tid]);
+    delete(@start[tid]);
+}
